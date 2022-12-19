@@ -4,8 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
 import Algdata.Init.LawfulLT
-import Algdata.Data.List.Prop
-import Algdata.Data.List.Ascending
 import Algdata.Data.KVChain.Basic
 import Algdata.Data.KVChain.MergeWith
 
