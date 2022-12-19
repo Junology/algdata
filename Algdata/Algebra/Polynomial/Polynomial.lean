@@ -129,6 +129,8 @@ def monomial (r : ρ) (x : List (α × Nat)) (o : MonomialOrder α := MonomialOr
 
 infixl:70 " ⊙ " => Polynomial.monomial
 
+def scalar (r : ρ) (o : MonomialOrder α := MonomialOrder.deglex) : Polynomial ρ α o := monomial r [] o
+
 --- Define a ring homomorphism out of polynomials in terms of the images of variables.
 def elim {β : Type _} [OfNat β (nat_lit 0)] [OfNat β (nat_lit 1)] [HAdd β β β] [HMul β β β] [HPow β Nat β] {o : MonomialOrder α} (coeff : ρ → β) (var : α → β) (f : Polynomial ρ α o) : β :=
   f.terms.foldl (λ b xs r => b + coeff r.1 * xs.elim var) 0

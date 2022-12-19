@@ -322,6 +322,16 @@ instance instLinearLTList {α : Type _} [LinearLT α] : LinearLT (List α) where
           case inl hab => exact Or.inr (Or.inl (List.lt.head _ _ hab))
           case inr hba => exact Or.inr (Or.inr (List.lt.head _ _ hba))
 
+instance instLinearLTString : LinearLT String where
+  irrefl x := by cases x with | mk cs => exact Irreflective.irrefl (α:=List Char) (r:=LT.lt) cs
+  trans {x} {y} {z} hxy hyz :=
+    by cases x; cases y; cases z; exact Trans.trans (r:=LT.lt (α:=List Char)) (s:=LT.lt (α:=List Char)) hxy hyz
+  trichot x y :=
+    by cases x with | mk xs => cases y with | mk ys =>
+    have : xs = ys → String.mk xs = String.mk ys := λ h => by cases h; rfl
+    apply Or.imp_left this
+    exact Trichotomous.trichot (r:=LT.lt (α:=List Char)) xs ys
+
 instance instConnectedLTLinearLT (α : Type _) [LinearLT α] : ConnectedLT α where
   not_gt_trans := by
     intro a b c hab hbc
