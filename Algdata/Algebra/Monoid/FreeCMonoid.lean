@@ -96,6 +96,18 @@ def repr [LT α] [Repr α] : FreeCMonoid α → Std.Format :=
 instance instReprFreeCMonoid [LT α] [Repr α] : Repr (FreeCMonoid α) where
   reprPrec := FreeCMonoid.reprPrec
 
+--- Use super-scripts instead of `^`
+def reprPrettyPrec [LT α] [Repr α] : FreeCMonoid α → Nat → Std.Format
+| mk xs, prec =>
+  match xs.toList with
+  | [] => "1"
+  | (t::ts) =>
+    let f : Sigma (λ _ : α => valType) → Std.Format :=
+      λ t => ite (t.2.val=1) (reprPrec t.1 70) (reprPrec t.1 80 ++ (Nat.toSuperscriptString t.2.val))
+    (ite (prec > 70) Std.Format.paren id) $ ts.foldl (λ s t => s ++ f t) (f t)
+
+def reprPretty [LT α] [Repr α] : FreeCMonoid α → Std.Format := λ x => FreeCMonoid.reprPrettyPrec x 0
+
 protected 
 def fromList [LinearLT α] [DecidableRel (α:=α) LT.lt] : List (α × Nat) → FreeCMonoid α :=
   List.foldl (λ x t => dite (t.2>0) (λ ht => ⟨x.vars.insertWith (λ _ a b => Option.some (valAdd a b)) t.1 ⟨t.2,ht⟩⟩) (λ _ => x)) 1

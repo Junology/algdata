@@ -29,6 +29,8 @@ structure Polynomial (ρ : Type u) (α : Type v) [OfNat ρ (nat_lit 0)] [Decidab
   terms : KVChain o.gt (λ _ : FreeCMonoid α => Polynomial.Coeff ρ)
 
 
+namespace Polynomial
+
 /-!
 ## Instances
 -/
@@ -42,20 +44,38 @@ variable {ρ : Type u} {α : Type v} [DecidableEq α] [LinearLT α] [DecidableRe
 --   infixl:65 " + "   => HAdd.hAdd
 --   infixl:70 " * "   => HMul.hMul
 --   infixr:80 " ^ "   => HPow.hPow
+
+protected
+def reprPrec [OfNat ρ (nat_lit 0)] [Repr ρ] [Repr α] (f : Polynomial ρ α o) (prec : Nat) : Lean.Format :=
+  let g : Sigma (λ _ : FreeCMonoid α => Polynomial.Coeff ρ) → Std.Format :=
+    λ t => match t.1.vars.toList with
+      | [] => repr t.2
+      | (_::_) => reprPrec t.2 70 ++ "⊙" ++ reprPrec t.1 70
+  match f.terms.toList with
+  | [] => "0"
+  | [t] => ite (prec > 70) Std.Format.paren id $ g t
+  | (t::ts) =>
+    ite (prec > 65) Std.Format.paren id $ ts.foldl (λ s t => s ++ " + " ++ g t) (g t)
+
+def reprPrettyPrec [OfNat ρ (nat_lit 0)] [Repr ρ] [Repr α] (f : Polynomial ρ α o) (prec : Nat) : Lean.Format :=
+  let g : Sigma (λ _ : FreeCMonoid α => Polynomial.Coeff ρ) → Std.Format :=
+    λ t => match t.1.vars.toList with
+      | [] => repr t.2
+      | (_::_) => reprPrec t.2 70 ++ "⊙" ++ FreeCMonoid.reprPrettyPrec t.1 70
+  match f.terms.toList with
+  | [] => "0"
+  | [t] => ite (prec > 70) Std.Format.paren id $ g t
+  | (t::ts) =>
+    ite (prec > 65) Std.Format.paren id $ ts.foldl (λ s t => s ++ " + " ++ g t) (g t)
+
+def reprPretty [OfNat ρ (nat_lit 0)] [Repr ρ] [Repr α] : Polynomial ρ α o → Lean.Format :=
+  λ f => reprPrettyPrec f 0
+
+def pretty [OfNat ρ (nat_lit 0)] [Repr ρ] [Repr α] : Polynomial ρ α o → String :=
+  λ f => (reprPretty f).pretty
+
 instance instReplPolynomial [OfNat ρ (nat_lit 0)] [Repr ρ] [Repr α] : Repr (Polynomial ρ α o) where
-  reprPrec x prec :=
-    let f : Sigma (λ _ : FreeCMonoid α => Polynomial.Coeff ρ) → Std.Format :=
-      λ t =>
-        match t.1.vars.toList with
-        | [] => repr t.2
-        | (_::_) => reprPrec t.2 70 ++ "⊙" ++ reprPrec t.1 70
-    match x.terms.toList with
-    | [] => "0"
-    | [t] =>
-      ite (prec > 70) Std.Format.paren id $ f t
-    | (t::ts) =>
-      ite (prec > 65) Std.Format.paren id $
-        ts.foldl (λ s t => s ++ " + " ++ f t) (f t)
+  reprPrec x prec := Polynomial.reprPrec x prec
 
 instance polynomialHasDecidableEq [DecidableEq ρ] [OfNat ρ (nat_lit 0)] : DecidableEq (Polynomial ρ α o)
 | Polynomial.mk xdata, Polynomial.mk ydata =>
@@ -93,13 +113,11 @@ instance instMulPolynomial [DecidableEq ρ] [Add ρ] [Mul ρ] [OfNat ρ (nat_lit
 end Instances
 
 
-namespace Polynomial
-
-variable {ρ : Type u} {α : Type v} [DecidableEq ρ] [DecidableEq α] [LinearLT α] [DecidableRel (α:=α) LT.lt] [OfNat ρ (nat_lit 0)]
-
 /-!
 ## Constructions
 -/
+
+variable {ρ : Type u} {α : Type v} [DecidableEq ρ] [DecidableEq α] [LinearLT α] [DecidableRel (α:=α) LT.lt] [OfNat ρ (nat_lit 0)]
 
 --- Monomial together with a coefficient as a polynomial
 def monomial (r : ρ) (x : List (α × Nat)) (o : MonomialOrder α := MonomialOrder.deglex) : Polynomial ρ α o where
@@ -117,19 +135,3 @@ def elim {β : Type _} [OfNat β (nat_lit 0)] [OfNat β (nat_lit 1)] [HAdd β β
 
 end Polynomial
 
-
-#eval 3⊙[('X',2), ('Y',4)]⊙[('A',3)] + 4⊙[('X',1)]⊙[('B',1)] + 1 + 0 + 4⊙[('X',2),('Y',4)]⊙[('B',3)]
-
-
-inductive TestT
-| mk : Nat → TestT
-
-@[instance 1000]
-def test2 : ToString TestT where
-  toString | TestT.mk n => "mk " ++ toString n
-
-@[instance]
-def test : ToString TestT where
-  toString | TestT.mk n => toString n
-
-#eval (TestT.mk 3)
