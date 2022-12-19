@@ -65,7 +65,20 @@ instance (o : MonomialOrder Vars) : HPow (Polynomial Int Vars o) Nat (Polynomial
 
 #eval List.map (λ n => (powpoly n).elim Polynomial.scalar e_eval) $ List.ofFn (n:=12) Fin.val
 
-example : (powpoly 3).elim Polynomial.scalar e_eval = powpoly' 3 := by simp; rfl
+example : (powpoly 3).elim Polynomial.scalar e_eval = powpoly' 3 := by
+  dsimp only [powpoly]
+  dsimp only [powpoly']
+  dsimp only [Polynomial.elim]
+  rfl
 
-set_option maxHeartbeats 3200000
-example : (powpoly 4).elim Polynomial.scalar e_eval = powpoly' 4 := by simp; rfl
+example : (powpoly 4).elim Polynomial.scalar e_eval = powpoly' 4 := by
+  dsimp only [powpoly]
+  dsimp only [powpoly']
+  dsimp only [Polynomial.elim]
+  rfl
+
+example : (powpoly 5).elim Polynomial.scalar e_eval = powpoly' 5 := by
+  dsimp only [powpoly]
+  dsimp only [powpoly']
+  dsimp only [Polynomial.elim]
+  rfl
