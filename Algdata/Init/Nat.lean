@@ -162,8 +162,8 @@ theorem div_mod_unique (n : Nat) : ∀ {q₁ q₂ r₁ r₂ : Nat}, r₁ < n →
       apply h_ind
       exact Nat.add_left_cancel heq
 
-/-
- - Ordering
+/-!
+## Ordering
 -/
 theorem compare_lt {m n : Nat} : m < n → compare m n = Ordering.lt := by
   intro h
@@ -180,4 +180,137 @@ theorem compare_gt {m n : Nat} : m > n → compare m n = Ordering.gt := by
   have := lt_iff_ne_and_ngt.mp h
   rw [if_neg this.2, if_neg (this.1 ∘ Eq.symm)]
 
+
+/-!
+## Bit operations
+-/
+
+theorem shiftRight_one (n : Nat) : n.shiftRight 1 = n/2 := rfl
+
+theorem shiftRight_lt {n k : Nat} : n ≠ 0 → k > 0 → n.shiftRight k < n := by
+  intro hn hk
+  induction k
+  case zero => exact absurd hk (Nat.lt_irrefl 0)
+  case succ k h_ind =>
+    unfold shiftRight
+    cases Nat.eq_zero_or_pos k
+    case inl h =>
+      cases h; dsimp [shiftRight]
+      exact Nat.div_lt_self (Nat.zero_lt_of_ne_zero hn) (Nat.lt_succ_self 1)
+    case inr h =>
+      calc
+        shiftRight n k / 2
+          ≤ shiftRight n k := Nat.div_le_self _ _
+        _ < n := h_ind h
+
+theorem land_zero {n : Nat} : n.land 0 = 0 := by
+  unfold land; unfold bitwise
+  rw [Bool.false_and, Bool.and_false]
+  have : false ≠ true := (λ h => Bool.noConfusion h); rw [if_neg this, if_neg this]
+  rw [if_pos rfl]
+  cases n
+  case zero => rw [if_pos rfl]
+  case succ _ => rw [if_neg (Nat.succ_ne_zero _)]
+
+theorem land_one {n : Nat} : n.land 1 = n % 2 := by
+  unfold land; unfold bitwise
+  rw [Bool.false_and, Bool.and_false]
+  have : false ≠ true := (λ h => by cases h); rw [if_neg this, if_neg this]
+  rw [if_neg Nat.one_ne_zero]
+  dsimp
+  have : 1 % 2 = 1 := rfl; rw [this]
+  rw [decide_eq_true (p:=1=1) rfl]
+  rw [Bool.and_true]
+  have : 1 / 2 = 0 := rfl; rw [this]
+  have : bitwise and (n/2) 0 = 0 := Nat.land_zero
+  rw [this, Nat.zero_add, Nat.zero_add]
+  cases n
+  case zero => rfl
+  case succ n =>
+    rw [if_neg (Nat.succ_ne_zero n)]
+    have mod_two_eq_zero_or_one : ∀ (m : Nat), m % 2 = 0 ∨ m % 2 = 1 :=by
+      intro m
+      cases Nat.eq_zero_or_pos (m % 2)
+      case inl hzero => exact Or.inl hzero
+      case inr hpos =>
+        have : m % 2 ≥ 1 := Nat.succ_le_of_lt hpos
+        have : m % 2 < 2 := Nat.mod_lt m (y:=2) (Nat.zero_lt_succ 1)
+        have : m % 2 ≤ 1 := Nat.le_of_lt_succ this
+        exact Or.inr (Nat.le_antisymm this ‹m % 2 ≥ 1›)
+    by_cases n.succ % 2 = 1
+    case pos hn => rw [decide_eq_true hn, if_pos rfl]; exact hn.symm
+    case neg hn =>
+      rw [decide_eq_false hn, if_neg ‹false ≠ true›]
+      have : succ n % 2 = 0 := Or.resolve_right (mod_two_eq_zero_or_one _) hn
+      exact this.symm
+
+#print axioms Nat.land_zero
+#print axioms Nat.land_one
+
+/-!
+## Variant inductions
+-/
+
+theorem inductionOn' {motive : Nat → Prop} (n : Nat) (base : motive 0) (succ : (n : Nat) → (∀ (k : Nat), k < n → motive k) → motive n) : motive n := by
+  suffices ∀ k, k ≤ n → motive k
+    from this n (Nat.le_refl n)
+  induction n
+  case zero =>
+    intro k hk
+    rw [Nat.le_antisymm hk (Nat.zero_le k)]
+    exact base
+  case succ n h_ind =>
+    intro k hk
+    cases Nat.lt_or_eq_of_le hk
+    case inl h => exact h_ind k (Nat.le_of_lt_succ h)
+    case inr h =>
+      cases h
+      apply succ
+      exact λ k hk => h_ind k (Nat.le_of_lt_succ hk)
+
+theorem even_or_odd (n : Nat) : (∃ (k : Nat), n = 2*k) ∨ (∃ (k : Nat), n = 2*k+1) := by
+  by_cases n % 2 = 0
+  case pos h =>
+    apply Or.inl
+    exists n / 2
+    calc
+      n = 2 * (n/2) + n%2 := (Nat.div_add_mod n 2).symm
+      _ = 2 * (n/2) := by rw [h, Nat.add_zero]
+  case neg h =>
+    have : n % 2 = 1 := by
+      have : n % 2 < 2 := Nat.mod_lt _ (Nat.zero_lt_succ 1)
+      have : n % 2 ≤ 1 := Nat.le_of_lt_succ this
+      have : n % 2 ≥ 1 := Nat.gt_zero_of_not_eq_zero h
+      apply Nat.le_antisymm <;> assumption
+    apply Or.inr
+    exists n / 2
+    calc
+      n = 2 * (n/2) + n%2 := (Nat.div_add_mod n 2).symm
+      _ = 2 * (n/2) + 1 := by rw [this]
+
+theorem rec_even_odd {motive : Nat → Prop} (base : motive 0) (even : (k : Nat) → (k > 0) → motive k → motive (2*k)) (odd : (k : Nat) → motive k → motive (2*k+1)) (n : Nat) : motive n := by
+  apply Nat.inductionOn' n; clear n
+  case base => exact base
+  case succ =>
+    intro n h_ind
+    cases even_or_odd n
+    case inl h =>
+      cases h with | intro m hm =>
+      cases hm
+      cases m
+      case zero => rw [Nat.mul_zero]; exact base
+      case succ m =>
+        apply even _ (Nat.zero_lt_succ m); apply h_ind
+        calc
+          succ m
+            < succ m + succ m := Nat.lt_add_succ _ m
+          _ = 2*succ m := by simp only [Nat.add_mul 1 1 _, Nat.one_mul]
+    case inr h =>
+      cases h with | intro m hm =>
+      cases hm
+      apply odd; apply h_ind
+      calc
+        m ≤ m + m := Nat.le_add_left m m
+        _ = 2 * m := by simp only [Nat.add_mul 1 1 m, Nat.one_mul]
+        _ < 2 * m + 1 := Nat.lt_succ_self _
 end Nat
