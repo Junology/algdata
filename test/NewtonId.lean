@@ -41,11 +41,10 @@ open Vars
 
 
 def powpoly : Nat → Polynomial Int String MonomialOrder.deglex
-| 0 => 1
+| 0 => 3
 | 1 => 1⊙[("e₁", 1)]
 | 2 => 1⊙[("e₁",2)] + (-2)⊙[("e₂",1)]
-| 3 => 1⊙[("e₁",3)] + (-3)⊙[("e₁",1), ("e₂",1)] + 3⊙[("e₃",1)]
-| (n+4) => 1⊙[("e₁",1)] * powpoly (n+3) + (-1)⊙[("e₂",1)] * powpoly (n+2) + 1⊙[("e₃",1)] * powpoly (n+1)
+| (n+3) => 1⊙[("e₁",1)] * powpoly (n+2) + (-1)⊙[("e₂",1)] * powpoly (n+1) + 1⊙[("e₃",1)] * powpoly n
 
 #eval powpoly 5
 #eval powpoly 15
