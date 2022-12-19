@@ -158,7 +158,8 @@ section degree
 
 variable [LinearLT α] [DecidableRel (α:=α) LT.lt] {deg : α → Nat}
 
-theorem eq_one_of_degree_zero {xs : FreeCMonoid α} (hdeg_pos : ∀ a, deg a > 0 := by intros; simp) : xs.degree deg = 0 → xs = 1 := by
+theorem eq_one_of_degree_zero {xs : FreeCMonoid α} (hxs : xs.degree deg = 0) (hdeg_pos : ∀ a, deg a > 0 := by intros; trivial) : xs = 1 := by
+  revert hxs
   cases xs with | mk xvars =>
   apply xvars.recOnList (motive:=λ xvars => degree deg ⟨xvars⟩ = 0 → FreeCMonoid.mk xvars = 1)
   case mk.nil => intros; rfl
