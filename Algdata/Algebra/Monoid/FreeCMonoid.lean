@@ -100,6 +100,9 @@ protected
 def fromList [LinearLT α] [DecidableRel (α:=α) LT.lt] : List (α × Nat) → FreeCMonoid α :=
   List.foldl (λ x t => dite (t.2>0) (λ ht => ⟨x.vars.insertWith (λ _ a b => Option.some (valAdd a b)) t.1 ⟨t.2,ht⟩⟩) (λ _ => x)) 1
 
+--- Define a monoid homomorphism in terms of generators.
+def elim [LT α] {β γ : Type _} [OfNat γ (nat_lit 1)] [HMul γ γ γ] [HPow β Nat γ] (f : α → β) (xs : FreeCMonoid α): γ :=
+  xs.vars.foldl (λ c a n => c * f a ^ n.1) 1
 
 /-!
 ## Algebraic properties
