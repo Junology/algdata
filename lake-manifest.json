@@ -14,41 +14,17 @@
     "name": "lake",
     "inputRev?": "master"}},
   {"git":
-   {"url": "https://github.com/leanprover/doc-gen4",
-    "subDir?": null,
-    "rev": "bdf803b1002786b87da7b8db8d2746c0002a715f",
-    "name": "doc-gen4",
-    "inputRev?": "main"}},
-  {"git":
    {"url": "https://github.com/mhuisi/lean4-cli",
     "subDir?": null,
     "rev": "5a858c32963b6b19be0d477a30a1f4b6c120be7e",
     "name": "Cli",
     "inputRev?": "nightly"}},
   {"git":
-   {"url": "https://github.com/leanprover-community/mathlib4.git",
-    "subDir?": null,
-    "rev": "0690e5fb542c782cc38e7ff86cf006f1f50d4fe1",
-    "name": "mathlib",
-    "inputRev?": null}},
-  {"git":
-   {"url": "https://github.com/gebner/quote4",
-    "subDir?": null,
-    "rev": "7ac99aa3fac487bec1d5860e751b99c7418298cf",
-    "name": "Qq",
-    "inputRev?": "master"}},
-  {"git":
    {"url": "https://github.com/leanprover/doc-gen4",
     "subDir?": null,
     "rev": "bdf803b1002786b87da7b8db8d2746c0002a715f",
     "name": "dog-gen4",
     "inputRev?": "main"}},
-  {"git":
-   {"url": "https://github.com/gebner/aesop",
-    "subDir?": null,
-    "rev": "6f04ed73886f455a8ec41fbbae21ef6b870c61ff",
-    "name": "aesop",
-    "inputRev?": "master"}},
   {"git":
    {"url": "https://github.com/hargonix/LeanInk",
     "subDir?": null,
@@ -64,6 +40,6 @@
   {"git":
    {"url": "https://github.com/leanprover/std4",
     "subDir?": null,
-    "rev": "a109889bf299f0d086f93a228e4c152f40ff5b0d",
+    "rev": "bf3acbb326513731ebb856717731cc1cd6a91d61",
     "name": "std",
-    "inputRev?": "main"}}]}
+    "inputRev?": "bf3acbb"}}]}
