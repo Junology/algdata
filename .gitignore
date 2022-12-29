@@ -2,4 +2,6 @@
 /lean_packages/*
 !/lean_packages/manifest.json
 
+lake-manifest.json
+
 /test/playground.lean
