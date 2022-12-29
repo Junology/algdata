@@ -22,7 +22,8 @@ instance instLinearLTVars : LinearLT Vars where
     | Vars.Y, Vars.Z => True
     | _, _ => False
   trans {x} {y} {z} hxy hyz := by
-    cases x <;> cases y <;> cases z <;> try {exact False.elim hxy} <;> try {exact False.elim hyz} <;> try {exact True.intro}
+    cases x <;> cases y <;> cases z <;> try {exact False.elim hxy} <;> try {exact False.elim hyz}
+    exact True.intro
   irrefl x := by cases x <;> exact not_false
   trichot x y := by cases x <;> cases y <;> simp
 
