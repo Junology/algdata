@@ -3,8 +3,11 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Std.Classes.LawfulMonad
+import Dijkstra.Control.Functor.Subreg
+
 import Algdata.Init.Logic
-import Algdata.Control.MonadProp
+-- import Algdata.Control.MonadProp
 import Algdata.Data.List.Basic
 
 namespace List
@@ -47,6 +50,7 @@ theorem relHead_eq_predHead_predHead {α β : Type _} {r : α → β → Prop} {
   cases as <;> cases bs <;> rfl
 
 
+/-
 protected
 def runP : List Prop → Prop := foldr And True
 
@@ -67,53 +71,33 @@ theorem runP_append {ps qs : List Prop} : List.runP (ps ++ qs) = (List.runP ps �
 
 end runP
 
-
-protected
-def forAll {α : Type _} (p : α → Prop) : List α → Prop := List.runP ∘ List.map p
+-/
 
 section forAll
-
-@[simp]
-theorem forAll_nil {α : Type _} (p : α → Prop) : List.forAll p [] = True := rfl
-
-@[simp]
-theorem forAll_cons {α : Type _} (p : α → Prop) {a : α} {as : List α} : List.forAll p (a::as) = (p a ∧ List.forAll p as) := rfl
 
 theorem predHead_of_forAll {α : Type _} {p : α → Prop} {as : List α} : as.forAll p → as.predHead p :=
   as.casesOn id (λ _ _ => And.left)
 
 theorem forAll_map_eq {α β : Type _} (p : β → Prop) (f : α → β) {as : List α} : (as.map f).forAll p = as.forAll (p ∘ f) := by
-  cases as
-  case nil => exact rfl
-  case cons a as =>
-    unfold List.forAll
-    dsimp
-    rw [List.comp_map]
-
-theorem forAll_filterMap_eq {α β : Type _} (p : β → Prop) (f : α → Option β) {as : List α} : (as.filterMap f).forAll p = as.forAll (Option.noneOrTrue p ∘ f):= by
   induction as
   case nil => exact rfl
   case cons a as h_ind =>
-    unfold filterMap
-    dsimp [List.forAll, map] at *
-    cases f a <;> dsimp [Option.noneOrTrue] at *
-    case none =>
-      rw [true_and]
-      exact h_ind
-    case some b =>
-      dsimp [map]
-      rw [h_ind]
+    dsimp [List.forAll]
+    rw [h_ind]
 
 @[simp]
 theorem forAll_append {α : Type _} (p : α → Prop) {as bs : List α} : List.forAll p (as ++ bs) = (List.forAll p as ∧ List.forAll p bs) := by
-  conv => lhs; dsimp [List.forAll]; rw [List.map_append, runP_append]
+  induction as
+  case nil => dsimp [forAll]; rw [true_and]
+  case cons _ _ h_ind => dsimp [forAll]; rw [h_ind, and_assoc]
 
 @[simp]
 theorem forAll_reverse {α : Type _} (p : α → Prop) {as : List α} : as.reverse.forAll p = as.forAll p := by
   induction as <;> simp
   -- case nil has been closed
   case cons a as h_ind =>
-    rw [h_ind, And.comm]
+    dsimp [forAll]
+    rw [h_ind, And.comm, and_true]
 
 @[simp]
 theorem forAll_reverseAux {α : Type _} (p : α → Prop) {as bs : List α} : List.forAll p (List.reverseAux as bs) = (as.forAll p ∧ bs.forAll p) := by
@@ -131,7 +115,7 @@ end forAll
 
 protected
 def forAllRel {α β : Type _} (r : α → β → Prop) (as : List α) (bs : List β) : Prop :=
-  List.runP <| (as.map r).bind bs.map
+  as.forAll λ a => bs.forAll (r a)
 
 section forAllRel
 
@@ -148,14 +132,15 @@ theorem forAllRel_cons_left {a : α} {as : List α} {bs : List β} : List.forAll
 theorem forAllRel_nil_right {as : List α} : List.forAllRel r as [] = True := by
   induction as
   case nil => rfl
-  case cons a as h_ind => simp [h_ind]
+  case cons a as h_ind => dsimp [List.forAllRel, forAll] at *; rw [h_ind, true_and]
 
 @[simp]
 theorem forAllRel_cons_right {as : List α} {b : β} {bs : List β} : List.forAllRel r as (b::bs) = (List.forAll (r · b) as ∧ List.forAllRel r as bs) := by
   induction as
-  case nil => simp
+  case nil => dsimp [List.forAllRel, forAll]; rw[true_and]
   case cons a as h_ind =>
-    simp [forAllRel_cons_left, h_ind]
+    rw [forAllRel_cons_left, h_ind]
+    dsimp [forAll]
     conv =>
       lhs
       rw [←and_assoc (c:=List.forAllRel _ _ _), and_assoc (a:=r a b), And.comm (a:=List.forAll _ _) (b:=List.forAll _ _), ←and_assoc]
@@ -175,12 +160,13 @@ theorem forAllRel_of_trans_forAll_forAll {α β γ : Type _} {r₁ : α → β �
   induction as <;> simp
   -- case nil has been closed
   case cons a as h_ind =>
-    intro hab hasb hbc
+    dsimp [List.forAllRel, forAll]
+    intro habsb hbc
     constructor
     case left =>
-      exact forAll_of_forAll (λ c (h : r₂ b c) => trans hab h) hbc
+      exact forAll_of_forAll (λ c (h : r₂ b c) => trans habsb.left h) hbc
     case right =>
-      exact h_ind hasb hbc
+      exact h_ind habsb.right hbc
 
 theorem forAllRel_trans {α β γ : Type _} {r₁ : α → β → Prop} {r₂ : β → γ → Prop} {r : α → γ → Prop} [Trans r₁ r₂ r ] {as : List α} {bs : List β} {cs : List γ} : bs ≠ [] → List.forAllRel r₁ as bs → List.forAllRel r₂ bs cs → List.forAllRel r as cs := by
   intro hbs hab hbc

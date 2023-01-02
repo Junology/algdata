@@ -82,9 +82,11 @@ def filterMapKV.{u₁, v₁} [Trans r r r] {α₁ : Type u₁} {r₁ : α₁ →
   ascend := by
     apply ascend.filterMap (Sigma.relOnFst r₁)
     intro x y hxy
-    cases g x.1 x.2 <;> cases g y.1 y.2 <;> dsimp [Functor.map, Option.bind, Option.map] <;> try {exact Option.runP_none}
-    apply Option.runP_some.mpr
-    unfold Sigma.relOnFst at *
+    cases g x.1 x.2 <;> cases g y.1 y.2
+      <;> dsimp [Functor.map, Option.bind, Option.map]
+      <;> intro b₁ b₂ h₁ h₂
+      <;> try {cases h₁} <;> try {cases h₂}
+    cases Option.some.inj h₁; cases Option.some.inj h₂
     exact f_rel _ _ hxy
 }
 

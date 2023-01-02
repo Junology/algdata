@@ -3,8 +3,8 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
-import Algdata.Control.Prop
-import Algdata.Control.MonadProp
+import Std.Classes.LawfulMonad
+
 import Algdata.Data.Array.Basic
 
 namespace Array
@@ -19,12 +19,8 @@ theorem modifyM_nil (n : Nat) (f : α → m α) : #[].modifyM n f = pure #[] := 
   have : ¬(n < size (α:=α) #[]) := Nat.not_lt_zero _
   rw [dif_neg this]
 
-theorem modifyMP_nil [MonadProp m] [LawfulMonad m] {α : Type _} (n : Nat) (f : α → m α) : (· = #[]) <$? (#[].modifyM n f) := by
-  apply mapP_of_pure
-  rfl
-
 @[simp]
-theorem modifyM_head (a : α) (as : List α) (f : α → m α): Array.modifyM {data := a::as} 0 f = (f a >>= fun a' => pure {data := a' :: as }) := by
+theorem modifyM_head (a : α) (as : List α) (f : α → m α) : modifyM {data := a::as} 0 f = (f a >>= fun a' => pure {data := a' :: as }) := by
   rw [modifyM]
   have : 0 < Array.size {data := a::as} := by
     rw [size_cons]
@@ -84,7 +80,7 @@ theorem modify_tail (a : α) (as : List α) {k : Nat} {f : α → α} : Array.mo
   rw [modify, Id.run, modify, Id.run]
   exact modifyM_tail (m:=Id) a as k f
 
-theorem size_modifyM [LawfulMonad m] {α : Type _} : ∀ (x : Array α) (n : Nat) (f : α → m α), (fun y => y.size = x.size) <$? (x.modifyM n f)
+theorem size_modifyM [LawfulMonad m] {α : Type _} : ∀ (x : Array α) (n : Nat) (f : α → m α), SatisfiesM (fun y => y.size = x.size) (x.modifyM n f)
 | mk as => by
   induction as with
   | nil =>
@@ -104,25 +100,23 @@ theorem size_modifyM [LawfulMonad m] {α : Type _} : ∀ (x : Array α) (n : Nat
       rfl
     | succ n =>
       rw [modifyM_tail]
-      apply mapP_map_of_comp_mapP
-      cases hi n f with | intro w hw =>
-      rw [hw]
-      have : ((fun y => y.size = size {data:=a::as})∘ Array.append #[a]) = (fun y => y.size = as.length) := by
-        apply funext; intro y
-        dsimp
+      apply SatisfiesM.map (p:=λ y => y.size = as.length)
+      . cases hi n f with | intro w hw =>
+        exact Exists.intro w hw
+      . intros y hy;
         conv =>
-          lhs; lhs; change (#[a].append y).size; rw [append_size, Nat.add_comm]; change size y + 1
-        apply propext
-        exact Iff.intro (Nat.succ.inj) (congrArg Nat.succ)
-      rw [this]
-      exact Exists.intro w rfl
+          lhs; change size (#[a] ++ y);
+          rw [size_eq_length_of_data, append_data, List.length_append]
+          change 1 + y.size; rw [hy]
+        exact Nat.add_comm 1 _
 
 @[simp]
 theorem size_modify : ∀ (x : Array α) (n : Nat) (f : α → α), (x.modify n f).size = x.size := by
   intro x n f
   cases size_modifyM (m:=Id) x n f with | intro w hw =>
-  have : modifyM (α:=α) (m:=Id) = modify := rfl
-  rw [this] at hw; rw [hw]
+  dsimp at hw
+  conv at hw => rhs; change modify x n f
+  rw [←hw]
   exact w.property
 
 end Array

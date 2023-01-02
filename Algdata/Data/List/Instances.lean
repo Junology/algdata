@@ -5,7 +5,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 import Algdata.Data.List.Basic
 import Algdata.Data.List.Prop
-import Algdata.Control.MonadProp
 
 namespace List
 
@@ -127,46 +126,5 @@ instance instLawfulMonadList : LawfulMonad List where
 
 end LawfulMonad
 
-
-/- MonadProp; i.e. List can can choose a proof of a proposition for each member -/
-
-section MonadProp
-
-variable {α : Type _}
-
-theorem mapP_nil (p : α → Prop) : p <$? [] :=
-  Exists.intro [] rfl
-
-theorem mapP_cons {p : α → Prop} {a : α} {as : List α} : p <$? (a::as) ↔ p a ∧ (p <$? as) := by
-  constructor
-  case mp =>
-    intro h
-    cases h with | intro w hw =>
-    cases w with
-    | nil => cases hw
-    | cons b bs =>
-      dsimp at hw
-      cases hw
-      apply And.intro b.property
-      exists bs
-  case mpr =>
-    intro h
-    cases h.right with | intro w hw =>
-    cases hw
-    exists ⟨a,h.left⟩:: w
-
-def ensure {p : α → Prop} : (as : List α) → p <$? as → List (Subtype p)
-| [], _ => []
-| (a::as), h =>
-  ⟨a,(mapP_cons.mp h).left⟩ :: ensure as (mapP_cons.mp h).right
-
-instance instMonadPropList : MonadProp List where
-  ensure := ensure
-  val_ensure as h := by
-    induction as with
-    | nil => rfl
-    | cons a as hi => dsimp at *; rw [hi]
-
-end MonadProp
 
 end List

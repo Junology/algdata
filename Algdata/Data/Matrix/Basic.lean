@@ -3,8 +3,8 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
-import Algdata.Control.Prop
-import Algdata.Control.MonadProp
+import Dijkstra.Control.Functor.Subreg
+
 import Algdata.Init.Nat
 import Algdata.Init.Fin
 import Algdata.Data.Array.Basic
@@ -77,8 +77,8 @@ def modifyM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (i : Fin r) (j
 
 -- use `Array.modifyM` function directly
 -- TODO: performance comparison with `modifyM` above
-def modifyM' {m : Type _ → Type _} [Monad m] [LawfulMonad m] [MonadProp m](a : Matrix α r c) (i : Fin r) (j : Fin c) (f : α → m α) : m (Matrix α r c) := do
-  let w ← MonadProp.ensure _ (a.entry.size_modifyM (i.val*c + j.val) f)
+def modifyM' {m : Type _ → Type _} [Monad m] [LawfulMonad m] [SubregFunctor m] (a : Matrix α r c) (i : Fin r) (j : Fin c) (f : α → m α) : m (Matrix α r c) := do
+  let w ← SubregFunctor.ensureF _ (a.entry.size_modifyM (i.val*c + j.val) f)
   pure {entry:=w.val, hsize:=by rw[w.property,a.hsize]}
 
 def modify (a : Matrix α r c) (i : Fin r) (j : Fin c) (f : α → α) : Matrix α r c :=

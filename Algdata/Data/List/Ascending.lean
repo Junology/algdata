@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
 import Algdata.Init.LawfulLT
-import Algdata.Control.Prop
 import Algdata.Data.List.Basic
 import Algdata.Data.List.Prop
 
@@ -151,7 +150,7 @@ theorem subst_head {a b : α} (hab : ∀ c, r a c → r b c) : {as : List α} �
 | _, cons ha' has => Ascending.cons (hab _ ha') has
 
 protected
-theorem filterMap.{v} [Trans r r r] {β : Type v} (r' : β → β → Prop) (f : α → Option β) (rel_pres : ∀ a₁ a₂, r a₁ a₂ → runP (Option.bind (f a₁) (λ b₁ => Option.map (r' b₁) (f a₂)))) : ∀ {as : List α}, as.Ascending r → (as.filterMap f).Ascending r' := by
+theorem filterMap.{v} [Trans r r r] {β : Type v} (r' : β → β → Prop) (f : α → Option β) (rel_pres : ∀ a₁ a₂, r a₁ a₂ → ∀ b₁ b₂, f a₁ = some b₁ → f a₂ = some b₂ → r' b₁ b₂) : ∀ {as : List α}, as.Ascending r → (as.filterMap f).Ascending r' := by
   intro as; induction as
   case nil => exact λ _ => Ascending.nil
   case cons a as h_ind =>
@@ -163,6 +162,7 @@ theorem filterMap.{v} [Trans r r r] {β : Type v} (r' : β → β → Prop) (f :
       apply cons_of_forAll
       . clear h_ind
         induction as <;> dsimp [filterMap]
+        case a.nil => dsimp [List.forAll]
         case a.cons a₁ as h_ind₁ =>
           have hchainaas : Ascending r (a::as) := by
             apply hchain.tail.subst_head
@@ -173,8 +173,7 @@ theorem filterMap.{v} [Trans r r r] {β : Type v} (r' : β → β → Prop) (f :
             constructor
             . have := rel_pres a a₁ hchain.head
               rw [hfa, hfa₁] at this
-              dsimp [Seq.seq, Functor.map, Option.bind, Option.map] at this
-              exact Option.runP_some.mp this
+              exact this b b₁ rfl rfl
             . exact h_ind₁ hchainaas
       . exact h_ind hchain.tail
 
