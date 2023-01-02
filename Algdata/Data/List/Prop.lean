@@ -7,7 +7,6 @@ import Std.Classes.LawfulMonad
 import Dijkstra.Control.Functor.Subreg
 
 import Algdata.Init.Logic
--- import Algdata.Control.MonadProp
 import Algdata.Data.List.Basic
 
 namespace List
