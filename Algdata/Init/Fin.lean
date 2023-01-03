@@ -43,18 +43,21 @@ def lexFold {m n : Nat} (x : Fin m) (y : Fin n) : Fin (m*n) where
 def lexFold_inj {m n : Nat} {x₁ x₂ : Fin m} {y₁ y₂ : Fin n} (h : lexFold x₁ y₁ = lexFold x₂ y₂) : x₁ = x₂ ∧ y₁ = y₂ :=
   lexfold_inj (congrArg val h)
 
+@[inline]
 def foldAllM {m : Type _ → Type _} [Monad m] {n : Nat} {α : Type _} (init : α) (f : Fin n → α → m α) : m α :=
-  let rec loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
+  let rec @[specialize] loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
   | 0, _ => pure x
   | k+1, h => do
     loop i.succ (← f ⟨i,Nat.lt_of_add_succ_eq h⟩ x) k (by rw [←h, Nat.add_succ, Nat.succ_add])
   loop 0 init n (Nat.zero_add n)
 
+@[inline]
 def foldAll {n : Nat} {α : Type _} (init : α) (f : Fin n → α → α) : α :=
   Id.run <| foldAllM init f
 
+@[inline]
 def forAllM {m : Type _ → Type _} [Monad m] {n : Nat} (f : Fin n → m PUnit) : m PUnit :=
-  let rec loop (i : Nat) : (k : Nat) → (i+k = n) → m PUnit
+  let rec @[specialize] loop (i : Nat) : (k : Nat) → (i+k = n) → m PUnit
   | 0, _ => pure ()
   | k+1, h => do
     f ⟨i,Nat.lt_of_add_succ_eq h⟩

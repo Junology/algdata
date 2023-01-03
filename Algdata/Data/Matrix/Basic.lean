@@ -151,6 +151,26 @@ def hAdd [HAdd α β γ] : Matrix α r c → Matrix β r c → Matrix γ r c := 
 
 end Addition
 
+section Multiplication
+
+variable {α β γ : Type _} {r k c : Nat}
+
+def hMul [HMul α β γ] [HAdd γ γ γ] [OfNat γ (nat_lit 0)] (x : Matrix α r k) (y : Matrix β k c) : Matrix γ r c where
+  entry := Array.ofFn (n:=r*c) λ l =>
+    have : c > 0 := by
+      cases Nat.eq_zero_or_pos c
+      case inl h =>
+        cases h
+        cases l with | mk l hl =>
+        rw [Nat.mul_zero] at hl
+        exact absurd hl (Nat.not_lt_zero l)
+      case inr h => exact h
+    let i : Fin r := Fin.mk (l / c) ((Nat.div_lt_iff_lt_mul this).mpr l.isLt)
+    let j : Fin c := Fin.mk (l % c) (Nat.mod_lt _ this)
+    Fin.foldAll (n:=k) 0 (λ s a => a + x.get i s * y.get s j)
+  hsize := by rw [Array.size_ofFn]
+
+end Multiplication
 
 /-!
 ## BLAS-like interfaces
