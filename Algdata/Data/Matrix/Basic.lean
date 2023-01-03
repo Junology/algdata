@@ -3,22 +3,30 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Std.Data.Array.Basic
+import Std.Data.Array.Lemmas
 import Dijkstra.Control.Functor.Subreg
 
 import Algdata.Init.Nat
 import Algdata.Init.Fin
+import Algdata.Init.GetElem
 import Algdata.Data.Array.Basic
 import Algdata.Data.Array.Modify
 
-structure Matrix (α : Type _) (r c : Nat) where
+universe u v w
+
+@[unbox]
+structure Matrix (α : Type u) (r c : Nat) where
   entry : Array α
   hsize : entry.size = r * c
+
+attribute [simp] Matrix.hsize
 
 namespace Matrix
 
 variable {α β γ : Type _} {r c : Nat}
 
-def zipWith (f : α → β → γ) (x : Matrix α r c) (y : Matrix β r c) : Matrix γ r c where
+def zipWith {α : Type u} {β : Type v} {γ : Type w} (f : α → β → γ) (x : Matrix α r c) (y : Matrix β r c) : Matrix γ r c where
   entry := Array.zipWith x.entry y.entry f
   hsize := by rw [Array.zipWith_size, x.hsize, y.hsize, Nat.min_eq]
 
@@ -26,49 +34,42 @@ def add [Add α] : Matrix α r c → Matrix α r c → Matrix α r c := zipWith 
 
 def hAdd [HAdd α β γ] : Matrix α r c → Matrix β r c → Matrix γ r c := zipWith (·+·)
 
-def get (a : Matrix α r c) (i : Fin r) (j : Fin c) : α :=
-  a.entry.get (a.hsize.symm ▸ Fin.lexFold i j)
+def get (a : @& Matrix α r c) (i : @& Fin r) (j : @& Fin c) : α :=
+  a.entry[a.hsize.symm ▸ Fin.lexFold i j]
 
-def set (a : Matrix α r c) (i : Fin r) (j : Fin c) (v : α) : Matrix α r c where
+def set (a : Matrix α r c) (i : @& Fin r) (j : @& Fin c) (v : α) : Matrix α r c where
   entry := a.entry.set (a.hsize.symm ▸ Fin.lexFold i j) v
-  hsize := by simp; exact a.hsize
+  hsize := (Array.size_set a.entry _ v).symm ▸ a.hsize
 
+--- Counterpart of `Array.get_set_eq`
 @[simp]
-theorem get_set_on (a : Matrix α r c) (i : Fin r) (j : Fin c) (v : α) : get (a.set i j v) i j = v := by
-  unfold get
-  unfold Fin.lexFold
-  unfold set
-  rw [Array.get_set_on a.entry (a.hsize.symm ▸ Fin.lexFold i j)]
-  rw [Fin.val_of_subst, Fin.val_of_subst]
-  rfl
+theorem get_set_eq (a : Matrix α r c) (i : Fin r) (j : Fin c) (v : α) : get (a.set i j v) i j = v := by
+  dsimp [get, set]
+  rw [getElem_eq (by rw [Fin.subst_eq]) (Fin.subst_val _)]
+  dsimp [Fin.lexFold]
+  rw [Array.get_set_eq a.entry]
 
-theorem get_set_off_row (a : Matrix α r c) {i₁ i₂ : Fin r} (h : i₁ ≠ i₂) (j : Fin c) (v : α) : get (a.set i₁ j v) i₂ j = get a i₂ j := by
-  unfold get; unfold Fin.lexFold
-  unfold set
-  rw [Array.get_set_off a.entry]
-  apply congrArg (Array.get a.entry)
-  apply Fin.eq_of_val_eq
-  rw [Fin.val_of_subst, Fin.val_of_subst]
-  rw [Fin.val_of_subst, Fin.val_of_subst]
-  unfold Fin.lexFold
-  simp
+--- Counterpart of `Array.get_set_ne` for distinct rwo indices.
+theorem get_set_ne_row (a : Matrix α r c) {i₁ i₂ : Fin r} (h : i₁ ≠ i₂) (j : Fin c) (v : α) : get (a.set i₁ j v) i₂ j = get a i₂ j := by
+  dsimp [set, get]
+  conv => lhs; rw [getElem_eq (by rw [Fin.subst_eq]) (Fin.subst_val _)]
+  conv => rhs; rw [getElem_eq rfl (Fin.subst_val _)]
+  apply Array.get_set_ne a.entry
+  dsimp
   intro hcontra
-  have : i₁.val = i₂.val := (Nat.div_mod_unique c j.isLt j.isLt hcontra).left
-  exact (h (Fin.eq_of_val_eq this))
+  have := Fin.lexFold_inj (Fin.eq_of_val_eq hcontra)
+  exact absurd this.left h
 
-theorem get_set_off_col (a : Matrix α r c) (i : Fin r) {j₁ j₂ : Fin c} (h : j₁ ≠ j₂) (v : α) : get (a.set i j₁ v) i j₂ = get a i j₂ := by
-  unfold get; unfold Fin.lexFold
-  unfold set
-  rw [Array.get_set_off a.entry]
-  apply congrArg (Array.get a.entry)
-  apply Fin.eq_of_val_eq
-  rw [Fin.val_of_subst, Fin.val_of_subst]
-  rw [Fin.val_of_subst, Fin.val_of_subst]
-  unfold Fin.lexFold
-  simp
+--- Counterpart of `Array.get_set_ne` for distinct column indices.
+theorem get_set_ne_col (a : Matrix α r c) (i : Fin r) {j₁ j₂ : Fin c} (h : j₁ ≠ j₂) (v : α) : get (a.set i j₁ v) i j₂ = get a i j₂ := by
+  dsimp [set, get]
+  conv => lhs; rw [getElem_eq (by rw [Fin.subst_eq]) (Fin.subst_val _)]
+  conv => rhs; rw [getElem_eq rfl (Fin.subst_val _)]
+  apply Array.get_set_ne a.entry
+  dsimp
   intro hcontra
-  have : j₁.val = j₂.val := (Nat.div_mod_unique c j₁.isLt j₂.isLt hcontra).right
-  exact (h (Fin.eq_of_val_eq this))
+  have := Fin.lexFold_inj (Fin.eq_of_val_eq hcontra)
+  exact absurd this.right h
 
 -- cf. modifyMUnsafe in Init.Data.Array.Basic
 def modifyM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (i : Fin r) (j : Fin c) (f : α → m α) : m (Matrix α r c) := do

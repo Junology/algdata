@@ -15,24 +15,14 @@ variable {m : Type u → Type v} [Monad m] {α : Type u}
 
 @[simp]
 theorem modifyM_nil (n : Nat) (f : α → m α) : #[].modifyM n f = pure #[] := by
-  rw [modifyM]
-  have : ¬(n < size (α:=α) #[]) := Nat.not_lt_zero _
-  rw [dif_neg this]
+  rfl
 
 @[simp]
 theorem modifyM_head (a : α) (as : List α) (f : α → m α) : modifyM {data := a::as} 0 f = (f a >>= fun a' => pure {data := a' :: as }) := by
-  rw [modifyM]
-  have : 0 < Array.size {data := a::as} := by
-    rw [size_cons]
-    exact Nat.zero_lt_succ _
-  rw [dif_pos this]
-  simp
-  rw [Array.get, List.get]
-  have : (fun v => pure (f:=m) (set {data := a::as} ⟨0,this⟩ v)) = (fun a' => pure {data := a' :: as}) := by
-    apply funext
-    intros
-    rfl
-  rw [this]
+  dsimp [modifyM]
+  rw [dif_pos (Nat.zero_lt_succ _)]
+  conv =>
+    lhs; lhs; change f a
 
 -- modifyM with an out-of-range index
 theorem modifyM_oor (x : Array α) (n : Nat) (f : α → m α) : ¬(n < x.size) → x.modifyM n f = pure x := by

@@ -15,29 +15,33 @@ def pred {n : Nat} (x : Fin n) (h : x.val > 0) : Fin n.pred where
   val := x.val.pred
   isLt := Nat.pred_lt_pred (Nat.not_eq_zero_of_lt h) x.isLt
 
-theorem val_of_subst {n k : Nat} (h : n = k) (x : Fin n) : (Eq.ndrec (motive := Fin) x h).val = x.val := by cases h; rfl
+@[simp]
+theorem subst_eq : ∀ {n k : Nat} {h : n = k} (x : Fin n), h ▸ x = ⟨x.val, h ▸ x.isLt⟩
+| _, _, rfl, mk _ _ => rfl
 
-theorem subst_match {n k : Nat} (h : n = k) (x : Fin n) : (Eq.ndrec (motive := Fin) x h) = ⟨x.val, h ▸ x.isLt⟩ :=
-  eq_of_val_eq (x.val_of_subst h)
+@[simp]
+theorem subst_val : ∀ {n k : Nat} {h : n = k} (x : Fin n), (h ▸ x).val = x.val
+| _, _, rfl, mk _ _ => rfl
 
-theorem subst_mk {n k : Nat} (h : n = k) (i : Nat) (hLt : i < n) : (Eq.ndrec (motive := Fin) (Fin.mk i hLt) h) = Fin.mk i (h ▸ hLt) := by cases h; rfl
-
--- Folding a product of two finite sets into a finite set in the lexicographical order
-def lexFold {m n : Nat} (x : Fin m) (y : Fin n) : Fin (m*n) where
-  val := x.val * n + y.val
-  isLt := calc
+theorem lexfold_lt_mul {m n : Nat} (x : Fin m) (y : Fin n) : x.val * n + y.val < m*n :=
+  calc
     x.val * n + y.val
       < x.val * n + n := Nat.add_lt_add_left y.isLt _
     _ = (x.val.succ)*n := (Nat.succ_mul x.val n).symm
-    _ ≤ m*n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt x.isLt)
+    _ ≤ m * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt x.isLt)
 
-def lexFold_inj {m n : Nat} {x₁ x₂ : Fin m} {y₁ y₂ : Fin n} : lexFold x₁ y₁ = lexFold x₂ y₂ → x₁ = x₂ ∧ y₁ = y₂ := by
-  intro h
-  unfold lexFold at h
-  have : x₁.val = x₂.val ∧ y₁.val = y₂.val := Nat.div_mod_unique n y₁.isLt y₂.isLt (congrArg val h)
-  constructor <;> apply Fin.eq_of_val_eq
-  case left => exact this.left
-  case right => exact this.right
+theorem lexfold_inj {m n : Nat} {x₁ x₂: Fin m} {y₁ y₂ : Fin n} (h : x₁.val * n + y₁.val = x₂.val * n + y₂.val) : x₁=x₂ ∧ y₁=y₂ := by
+  have : x₁.val = x₂.val ∧ y₁.val = y₂.val := Nat.div_mod_unique n y₁.isLt y₂.isLt h
+  exact ⟨Fin.eq_of_val_eq this.left, Fin.eq_of_val_eq this.right⟩
+
+-- Folding a product of two finite sets into a finite set in the lexicographical order
+@[always_inline]
+def lexFold {m n : Nat} (x : Fin m) (y : Fin n) : Fin (m*n) where
+  val := x.val * n + y.val
+  isLt := lexfold_lt_mul x y
+
+def lexFold_inj {m n : Nat} {x₁ x₂ : Fin m} {y₁ y₂ : Fin n} (h : lexFold x₁ y₁ = lexFold x₂ y₂) : x₁ = x₂ ∧ y₁ = y₂ :=
+  lexfold_inj (congrArg val h)
 
 def foldAllM {m : Type _ → Type _} [Monad m] {n : Nat} {α : Type _} (init : α) (f : Fin n → α → m α) : m α :=
   let rec loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α

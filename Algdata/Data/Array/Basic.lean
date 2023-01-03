@@ -3,6 +3,9 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Std.Data.Array.Basic
+import Std.Data.Array.Lemmas
+
 import Algdata.Init.Nat
 import Algdata.Data.List.Basic
 
@@ -13,7 +16,7 @@ universe u v w
 variable {α : Type u}
 
 theorem eq_of_data_eq_data : ∀ (x y : Array α), x.data = y.data → x=y
-| (Array.mk xdata), (Array.mk ydata), h => by simp at h; rw [h]
+| Array.mk _, Array.mk _, rfl => rfl
 
 @[simp]
 theorem size_nil {α : Type _} : @Array.size α #[] = 0 := rfl
@@ -32,20 +35,6 @@ theorem get_cons_succ' (a : α) (as : List α) (n : Nat) {h : n.succ < as.length
   have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
   rw [this]
   exact get_cons_succ a as ⟨n, Nat.lt_of_succ_lt_succ h⟩
-
-theorem get_set_on : ∀ (x : Array α) (i : Fin x.size) (v : α) (j : Fin (x.set i v).size), i.val = j.val → get (x.set i v) j = v
-| Array.mk as, Fin.mk k hk, v, Fin.mk l hl, h => by
-  rw [get] at *
-  delta set at *
-  simp
-  exact List.get_set_on as k v ⟨l,hl⟩ h
-
-theorem get_set_off : ∀ (x : Array α) (i : Fin x.size) (v : α) (j : Fin (x.set i v).size), i.val ≠ j.val → get (x.set i v) j = x.get ⟨j.val,(x.size_set i v ▸ j.isLt)⟩
-| Array.mk as, Fin.mk k hk, v, Fin.mk l hl, h => by
-  rw [get, get] at *
-  delta set at *
-  simp
-  exact List.get_set_off as k v ⟨l,hl⟩ h
 
 theorem foldl_cons {β : Type v} (f : β → α → β) (init : β) (a : α) (as : List α) : foldl f init {data := a::as} = foldl f (f init a) {data := as} := by
   rw [Array.foldl, Array.foldl]
