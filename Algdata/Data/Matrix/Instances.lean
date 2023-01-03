@@ -15,6 +15,15 @@ instance instAdd [Add α] : Add (Matrix α r c) := Add.mk Matrix.add
 
 instance instHAdd [HAdd α β γ] : HAdd (Matrix α r c) (Matrix β r c) (Matrix γ r c) := HAdd.mk Matrix.hAdd
 
+instance instHMul [HMul α β γ] [HAdd γ γ γ] [OfNat γ (nat_lit 0)]: HMul (Matrix α r k) (Matrix β k c) (Matrix γ r c) where
+  hMul := Matrix.hMul
+
+instance instOfNat0 [OfNat α (nat_lit 0)] : OfNat (Matrix α r c) (nat_lit 0) where
+  ofNat := Matrix.zero r c
+
+instance instOfNat1 [OfNat α (nat_lit 0)] [OfNat α (nat_lit 1)] : OfNat (Matrix α r r) (nat_lit 1) where
+  ofNat := Matrix.diagFn (n:=r) (λ _ => 1)
+
 instance instToString [ToString α] : ToString (Matrix α r c) where
   toString a :=
     let optcomma : String → String

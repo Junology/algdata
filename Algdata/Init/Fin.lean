@@ -7,6 +7,8 @@ import Std.Data.Fin.Lemmas
 
 import Algdata.Init.Nat
 
+universe u v w
+
 namespace Fin
 
 theorem val_succ_eq_succ_val {n : Nat} (x : Fin n) : x.succ.val = x.val.succ := rfl
@@ -44,7 +46,7 @@ def lexFold_inj {m n : Nat} {x₁ x₂ : Fin m} {y₁ y₂ : Fin n} (h : lexFold
   lexfold_inj (congrArg val h)
 
 @[inline]
-def foldAllM {m : Type _ → Type _} [Monad m] {n : Nat} {α : Type _} (init : α) (f : Fin n → α → m α) : m α :=
+def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (init : α) (f : Fin n → α → m α) : m α :=
   let rec @[specialize] loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
   | 0, _ => pure x
   | k+1, h => do
@@ -52,13 +54,13 @@ def foldAllM {m : Type _ → Type _} [Monad m] {n : Nat} {α : Type _} (init : �
   loop 0 init n (Nat.zero_add n)
 
 @[inline]
-def foldAll {n : Nat} {α : Type _} (init : α) (f : Fin n → α → α) : α :=
+def foldAll {n : Nat} {α : Type u} (init : α) (f : Fin n → α → α) : α :=
   Id.run <| foldAllM init f
 
 @[inline]
-def forAllM {m : Type _ → Type _} [Monad m] {n : Nat} (f : Fin n → m PUnit) : m PUnit :=
+def forAllM {m : Type u → Type v} [Monad m] {n : Nat} (f : Fin n → m PUnit) : m PUnit :=
   let rec @[specialize] loop (i : Nat) : (k : Nat) → (i+k = n) → m PUnit
-  | 0, _ => pure ()
+  | 0, _ => pure PUnit.unit
   | k+1, h => do
     f ⟨i,Nat.lt_of_add_succ_eq h⟩
     loop i.succ k (by rw [←h, Nat.add_succ, Nat.succ_add])

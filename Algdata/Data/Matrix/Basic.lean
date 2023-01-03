@@ -25,6 +25,7 @@ attribute [simp] Matrix.hsize
 namespace Matrix
 
 
+
 /-!
 ## Basic operations
 -/
@@ -75,7 +76,45 @@ theorem get_set_ne_col (a : Matrix α r c) (i : Fin r) {j₁ j₂ : Fin c} (h : 
 end BasicOp
 
 
-section modifyM
+/-!
+## Construction of matrices
+-/
+
+section Construction
+
+variable {α : Type u}
+
+--- Define a matrix whose entries are specified by a function
+def ofFn {r c : Nat} (f : Fin r → Fin c → α) : Matrix α r c where
+  entry := Array.ofFn (n:=r*c) $ λ k =>
+    have : c > 0 := by
+      cases Nat.eq_zero_or_pos c
+      case inl h =>
+        cases h
+        cases k with | mk k hk =>
+        rw [Nat.mul_zero] at hk
+        exact absurd hk (Nat.not_lt_zero k)
+      case inr h => exact h
+    let i : Fin r := Fin.mk (k / c) ((Nat.div_lt_iff_lt_mul this).mpr k.isLt)
+    let j : Fin c := Fin.mk (k % c) (Nat.mod_lt _ this)
+    f i j
+  hsize := Array.size_ofFn _
+
+--- Constructing the zero matrix with given size
+def zero [OfNat α (nat_lit 0)] (r c : Nat) : Matrix α r c where
+  entry := Array.mkArray (r*c) 0
+  hsize := Array.size_mkArray _ _
+
+--- A square diagonal matrix with given array as diagonal
+def diag {α : Type u} [OfNat α (nat_lit 0)] (ds : Array α) : Matrix α ds.size ds.size :=
+  Fin.foldAll (n:=ds.size) (zero ds.size ds.size) (λ i x => x.set i i ds[i])
+
+--- A square diagonal matrix whose diagonal entries are specified by a function
+def diagFn {α : Type u} [OfNat α (nat_lit 0)] {n : Nat} (f : Fin n → α) : Matrix α n n :=
+  Fin.foldAll (n:=n) (zero n n) (λ i x => x.set i i (f i))
+
+end Construction
+
 
 /-!
 ## modifyM
@@ -83,6 +122,8 @@ section modifyM
 Apply a (monadic) operation to specific entries of a matrix.
 
 -/
+
+section modifyM
 
 variable {α : Type u} {r c : Nat}
 
@@ -153,22 +194,10 @@ end Addition
 
 section Multiplication
 
-variable {α β γ : Type _} {r k c : Nat}
+variable {α β γ : Type _} [ToString α] [ToString β] [ToString γ]{r k c : Nat}
 
-def hMul [HMul α β γ] [HAdd γ γ γ] [OfNat γ (nat_lit 0)] (x : Matrix α r k) (y : Matrix β k c) : Matrix γ r c where
-  entry := Array.ofFn (n:=r*c) λ l =>
-    have : c > 0 := by
-      cases Nat.eq_zero_or_pos c
-      case inl h =>
-        cases h
-        cases l with | mk l hl =>
-        rw [Nat.mul_zero] at hl
-        exact absurd hl (Nat.not_lt_zero l)
-      case inr h => exact h
-    let i : Fin r := Fin.mk (l / c) ((Nat.div_lt_iff_lt_mul this).mpr l.isLt)
-    let j : Fin c := Fin.mk (l % c) (Nat.mod_lt _ this)
-    Fin.foldAll (n:=k) 0 (λ s a => a + x.get i s * y.get s j)
-  hsize := by rw [Array.size_ofFn]
+def hMul [HMul α β γ] [HAdd γ γ γ] [OfNat γ (nat_lit 0)] (x : Matrix α r k) (y : Matrix β k c) : Matrix γ r c :=
+  ofFn (λ i j => Fin.foldAll (n:=k) 0 $ λ s a => a + x.get i s * y.get s j)
 
 end Multiplication
 
