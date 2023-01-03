@@ -24,19 +24,20 @@ attribute [simp] Matrix.hsize
 
 namespace Matrix
 
-variable {α β γ : Type _} {r c : Nat}
 
-def zipWith {α : Type u} {β : Type v} {γ : Type w} (f : α → β → γ) (x : Matrix α r c) (y : Matrix β r c) : Matrix γ r c where
-  entry := Array.zipWith x.entry y.entry f
-  hsize := by rw [Array.zipWith_size, x.hsize, y.hsize, Nat.min_eq]
+/-!
+## Basic operations
+-/
 
-def add [Add α] : Matrix α r c → Matrix α r c → Matrix α r c := zipWith (·+·)
+section BasicOp
 
-def hAdd [HAdd α β γ] : Matrix α r c → Matrix β r c → Matrix γ r c := zipWith (·+·)
+variable {α : Type u} {r c : Nat}
 
+--- Get the `(i,j)`-entry of a given matrix
 def get (a : @& Matrix α r c) (i : @& Fin r) (j : @& Fin c) : α :=
   a.entry[a.hsize.symm ▸ Fin.lexFold i j]
 
+--- Substitute a value into the `(i,j)`-entry of a given matrix
 def set (a : Matrix α r c) (i : @& Fin r) (j : @& Fin c) (v : α) : Matrix α r c where
   entry := a.entry.set (a.hsize.symm ▸ Fin.lexFold i j) v
   hsize := (Array.size_set a.entry _ v).symm ▸ a.hsize
@@ -70,6 +71,20 @@ theorem get_set_ne_col (a : Matrix α r c) (i : Fin r) {j₁ j₂ : Fin c} (h : 
   intro hcontra
   have := Fin.lexFold_inj (Fin.eq_of_val_eq hcontra)
   exact absurd this.right h
+
+end BasicOp
+
+
+section modifyM
+
+/-!
+## modifyM
+
+Apply a (monadic) operation to specific entries of a matrix.
+
+-/
+
+variable {α : Type u} {r c : Nat}
 
 -- cf. modifyMUnsafe in Init.Data.Array.Basic
 def modifyM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (i : Fin r) (j : Fin c) (f : α → m α) : m (Matrix α r c) := do
@@ -114,6 +129,36 @@ def modifyColIdxM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (j : Fin
 
 def modifyColIdx (a : Matrix α r c) (j : Fin c) (f : Fin r → α → α) : Matrix α r c :=
   Id.run <| a.modifyColIdxM j f
+
+end modifyM
+
+
+/-!
+## Arithmetic operations
+-/
+
+section Addition
+
+variable {α β γ : Type _} {r c : Nat}
+
+def zipWith {α : Type u} {β : Type v} {γ : Type w} (f : α → β → γ) (x : Matrix α r c) (y : Matrix β r c) : Matrix γ r c where
+  entry := Array.zipWith x.entry y.entry f
+  hsize := by rw [Array.zipWith_size, x.hsize, y.hsize, Nat.min_eq]
+
+def add [Add α] : Matrix α r c → Matrix α r c → Matrix α r c := zipWith (·+·)
+
+def hAdd [HAdd α β γ] : Matrix α r c → Matrix β r c → Matrix γ r c := zipWith (·+·)
+
+end Addition
+
+
+/-!
+## BLAS-like interfaces
+-/
+
+section BLAS
+
+variable {α : Type u} {β : Type v} {γ : Type w} {r c : Nat}
 
 -- Scalar multiplication on a row from left
 def scalarLeftRow [HMul α β β] (a : Matrix β r c) (coeff : α) (i : Fin r) : Matrix β r c :=
@@ -170,6 +215,8 @@ def axpyCol [HMul α β γ] [HAdd γ β β] (a : Matrix β r c) (coeff : α) (js
 def xapyCol [HMul α β γ] [HAdd γ α α] (a : Matrix α r c) (jsrc : Fin c) (coeff : β) (jtgt : Fin c) : Matrix α r c :=
   a.modifyColIdx jtgt $
     fun i x => a.get i jsrc * coeff + x
+
+end BLAS
 
 end Matrix
 
