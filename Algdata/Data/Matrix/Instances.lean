@@ -24,15 +24,17 @@ instance instOfNat0 [OfNat α (nat_lit 0)] : OfNat (Matrix α r c) (nat_lit 0) w
 instance instOfNat1 [OfNat α (nat_lit 0)] [OfNat α (nat_lit 1)] : OfNat (Matrix α r r) (nat_lit 1) where
   ofNat := Matrix.diagFn (n:=r) (λ _ => 1)
 
+instance instRepr [Repr α] : Repr (Matrix α r c) where
+  reprPrec x _ :=
+    Lean.Format.bracket "{" (
+      Lean.Format.joinSep [
+        Lean.Format.group ("entry := " ++ repr x.entry),
+        Lean.Format.group ("hsize := _")
+      ] ", "
+    ) "}"
+
 instance instToString [ToString α] : ToString (Matrix α r c) where
-  toString a :=
-    let optcomma : String → String
-    | String.mk [] => ""
-    | s => s ++ ","
-    Fin.foldAll (n:=r) "" $ fun i s =>
-      (optcomma s ++ "[" ++ · ++ "]") $
-      Fin.foldAll (n:=c) "" $ fun j s =>
-        optcomma s ++ toString (a.get i j)
+  toString a := String.intercalate ", " $ List.ofFn (n:=r) λ i => toString a.entry[i*c:i*c+c]
 
 instance instForM {m : Type _ → Type _} [Monad m] : ForM m (Matrix α r c) α where
   forM a f := a.entry.forM f
