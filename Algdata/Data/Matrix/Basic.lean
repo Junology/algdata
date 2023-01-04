@@ -107,11 +107,11 @@ def zero [OfNat α (nat_lit 0)] (r c : Nat) : Matrix α r c where
 
 --- A square diagonal matrix with given array as diagonal
 def diag {α : Type u} [OfNat α (nat_lit 0)] (ds : Array α) : Matrix α ds.size ds.size :=
-  Fin.foldAll (n:=ds.size) (zero ds.size ds.size) (λ i x => x.set i i ds[i])
+  Fin.foldAll (n:=ds.size) (λ i x => x.set i i ds[i]) (zero ds.size ds.size)
 
 --- A square diagonal matrix whose diagonal entries are specified by a function
 def diagFn {α : Type u} [OfNat α (nat_lit 0)] {n : Nat} (f : Fin n → α) : Matrix α n n :=
-  Fin.foldAll (n:=n) (zero n n) (λ i x => x.set i i (f i))
+  Fin.foldAll (n:=n) (λ i x => x.set i i (f i)) (zero n n)
 
 end Construction
 
@@ -142,31 +142,27 @@ def modify (a : Matrix α r c) (i : Fin r) (j : Fin c) (f : α → α) : Matrix 
   Id.run <| a.modifyM i j f
 
 def modifyRowM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (i : Fin r) (f : α → m α) : m (Matrix α r c) :=
-  Fin.foldAllM (n:=c) a $
-    fun j b => b.modifyM i j f
+  Fin.foldAllM (n:=c) (λ j b => b.modifyM i j f) a
 
 def modifyRow (a : Matrix α r c) (i : Fin r) (f : α → α) : Matrix α r c :=
   Id.run <| a.modifyRowM i f
 
 def modifyColM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (j : Fin c) (f : α → m α) : m (Matrix α r c) :=
-  Fin.foldAllM (n:=r) a $
-    fun i b => b.modifyM i j f
+  Fin.foldAllM (n:=r) (λ i b => b.modifyM i j f) a
 
 def modifyCol (a : Matrix α r c) (j : Fin c) (f : α → α) : Matrix α r c :=
   Id.run <| a.modifyColM j f
 
 -- Modification of a row with column indices
 def modifyRowIdxM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (i : Fin r) (f : Fin c → α → m α) : m (Matrix α r c) :=
-  Fin.foldAllM (n:=c) a $
-    fun j b => b.modifyM i j (f j)
+  Fin.foldAllM (n:=c) (λ j b => b.modifyM i j (f j)) a
 
 def modifyRowIdx (a : Matrix α r c) (i : Fin r) (f : Fin c → α → α) : Matrix α r c :=
   Id.run <| a.modifyRowIdxM i f
 
 -- Modificaion of a column with row indices
 def modifyColIdxM {m : Type _ → Type _} [Monad m] (a : Matrix α r c) (j : Fin c) (f : Fin r → α → m α) : m (Matrix α r c) :=
-  Fin.foldAllM (n:=r) a $
-    fun i b => b.modifyM i j (f i)
+  Fin.foldAllM (n:=r) (λ i b => b.modifyM i j (f i)) a
 
 def modifyColIdx (a : Matrix α r c) (j : Fin c) (f : Fin r → α → α) : Matrix α r c :=
   Id.run <| a.modifyColIdxM j f
@@ -197,7 +193,7 @@ section Multiplication
 variable {α β γ : Type _} [ToString α] [ToString β] [ToString γ]{r k c : Nat}
 
 def hMul [HMul α β γ] [HAdd γ γ γ] [OfNat γ (nat_lit 0)] (x : Matrix α r k) (y : Matrix β k c) : Matrix γ r c :=
-  ofFn (λ i j => Fin.foldAll (n:=k) 0 $ λ s a => a + x.get i s * y.get s j)
+  ofFn (λ i j => Fin.foldAll (n:=k) (λ s a => a + x.get i s * y.get s j) 0)
 
 end Multiplication
 
@@ -227,19 +223,21 @@ def scalarRightCol [HMul α β α] (a : Matrix α r c) (j : Fin c) (coeff : β) 
 
 -- Swap two rows
 def swapRow (a : Matrix α r c) (i₁ i₂ : Fin r) : Matrix α r c :=
-  Fin.foldAll (n:=c) a $
-    fun j a => {
+  Fin.foldAll (n:=c)
+    (fun j a => {
       entry := a.entry.swap (a.hsize.symm ▸ Fin.lexFold i₁ j) (a.hsize.symm ▸ Fin.lexFold i₂ j)
       hsize := by rw [Array.size_swap, a.hsize]
-    }
+    })
+    a
 
 -- Swap two columns
 def swapCol (a : Matrix α r c) (j₁ j₂ : Fin c) : Matrix α r c :=
-  Fin.foldAll (n:=r) a $
-    fun i a => {
+  Fin.foldAll (n:=r)
+    (fun i a => {
       entry := a.entry.swap (a.hsize.symm ▸ Fin.lexFold i j₁) (a.hsize.symm ▸ Fin.lexFold i j₂)
       hsize := by rw [Array.size_swap, a.hsize]
-    }
+    })
+    a
 
 -- Add a scalar multiple of a row to another
 -- The multiplication is performed from left: `y ← a*x + y`

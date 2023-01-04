@@ -46,7 +46,7 @@ def lexFold_inj {m n : Nat} {x₁ x₂ : Fin m} {y₁ y₂ : Fin n} (h : lexFold
   lexfold_inj (congrArg val h)
 
 @[inline]
-def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (init : α) (f : Fin n → α → m α) : m α :=
+def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (f : Fin n → α → m α) (init : α) : m α :=
   let rec @[specialize] loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
   | 0, _ => pure x
   | k+1, h => do
@@ -54,8 +54,8 @@ def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (init : �
   loop 0 init n (Nat.zero_add n)
 
 @[inline]
-def foldAll {n : Nat} {α : Type u} (init : α) (f : Fin n → α → α) : α :=
-  Id.run <| foldAllM init f
+def foldAll {n : Nat} {α : Type u} (f : Fin n → α → α) (init : α) : α :=
+  Id.run <| foldAllM f init
 
 @[inline]
 def forAllM {m : Type u → Type v} [Monad m] {n : Nat} (f : Fin n → m PUnit) : m PUnit :=

@@ -27,10 +27,12 @@ def pretty (a : Matrix α r c) : String := Id.run do
   let mut ss := a.entry.map toString
   let wd := Array.foldl (fun k x => Nat.max k x.length) 0 ss
   ss := ss.map (padding wd)
-  Fin.foldAllM (n:=r) "" $ fun i str => do
-    let mut rowss := ""
-    for s in ss[i.val*c : i.val*c + c] do
-      rowss := intercalateAppend " " rowss s
-    pure $ intercalateAppend "\n" str ("│" ++ rowss ++ "│")
+  Fin.foldAllM (n:=r) (
+    fun i str => do
+      let mut rowss := ""
+      for s in ss[i.val*c : i.val*c + c] do
+        rowss := intercalateAppend " " rowss s
+      pure $ intercalateAppend "\n" str ("│" ++ rowss ++ "│")
+  ) ""
 
 end Matrix
