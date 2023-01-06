@@ -9,14 +9,33 @@ import Std.Data.Array.Lemmas
 import Algdata.Init.Nat
 import Algdata.Data.List.Basic
 
+/-!
+
+# Miscellaneous lemmas for `Array`
+
+Lemmas around `Array` including `Classical`-free variants of those in Std library.
+
+-/
+
 namespace Array
 
 universe u v w
 
 variable {α : Type u}
 
-theorem eq_of_data_eq_data : ∀ (x y : Array α), x.data = y.data → x=y
+/-!
+## Equality
+-/
+
+/-- The equality of `Array`. -/
+protected
+theorem eq : ∀ (x y : Array α), x.data = y.data → x=y
 | Array.mk _, Array.mk _, rfl => rfl
+
+
+/-!
+## `Array.size`
+-/
 
 @[simp]
 theorem size_nil {α : Type _} : @Array.size α #[] = 0 := rfl
@@ -26,16 +45,12 @@ theorem size_cons (a : α) (as : List α) : Array.size {data := a::as} = (Array.
 
 theorem size_eq_length_of_data (x : Array α) : x.size = x.data.length := rfl
 
-theorem get_cons_succ (a : α) (as : List α) (n : Fin as.length): Array.get {data := a::as} n.succ = Array.get {data := as} n := by
-  rw [Array.get, Array.get]
-  cases n
-  rfl
 
-theorem get_cons_succ' (a : α) (as : List α) (n : Nat) {h : n.succ < as.length.succ} : Array.get {data := a::as} ⟨n.succ,h⟩ = Array.get {data := as} ⟨n,Nat.lt_of_succ_lt_succ h⟩ := by
-  have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
-  rw [this]
-  exact get_cons_succ a as ⟨n, Nat.lt_of_succ_lt_succ h⟩
+/-!
+## `Array.foldl`
+-/
 
+/-- Induction step of `foldl` in terms of `Array.data`. -/
 theorem foldl_cons {β : Type v} (f : β → α → β) (init : β) (a : α) (as : List α) : foldl f init {data := a::as} = foldl f (f init a) {data := as} := by
   rw [Array.foldl, Array.foldl]
   rw [Array.foldlM, Array.foldlM]
@@ -79,6 +94,20 @@ theorem foldl_cons {β : Type v} (f : β → α → β) (init : β) (a : α) (as
         fun h' => hneg (Nat.lt_of_succ_lt_succ h')
       rw [dif_neg hneg, dif_neg this]
 
+/-- `Classical`-free analogue of `Array.foldl_eq_foldl_data` in Std -/
+theorem foldl_eq_foldl_data' {β : Type v} (f : α → β → α) (init : α) (arr : Array β) : foldl f init arr = List.foldl f init arr.data := by
+  cases arr with | mk bs =>
+  induction bs generalizing init
+  case nil => rfl
+  case cons b bs h_ind =>
+    rw [foldl_cons, h_ind]
+    rfl
+
+
+/-!
+## `Array.append`
+-/
+
 theorem cons_append_data (a : α) : ∀ (as : List α) (x : Array α), ({data := a::as} ++ x).data = a::({data := as} ++ x).data
 | as, mk bs => by
   induction bs generalizing as with
@@ -121,7 +150,7 @@ theorem nil_append : ∀ (x : Array α), #[] ++ x = x
     rw [append_cons]
     have : #[].push a = {data :=[a]} := rfl
     rw [this]; clear this
-    apply eq_of_data_eq_data
+    apply Array.eq
     rw [cons_append_data]
     rw [(_ : {data :=[]} = #[])]
     rw [hi]
@@ -164,10 +193,25 @@ theorem append_size : ∀ (x y : Array α), (x ++ y).size = x.size + y.size
     have : List.length ({data:=as} ++ y).data = ({data:=as} ++ y).size := rfl
     rw [this, hi]
 
+
+/-!
+## `Array.get` and `Array.set`
+-/
+
+theorem get_cons_succ (a : α) (as : List α) (n : Fin as.length): Array.get {data := a::as} n.succ = Array.get {data := as} n := by
+  rw [Array.get, Array.get]
+  cases n
+  rfl
+
+theorem get_cons_succ' (a : α) (as : List α) (n : Nat) {h : n.succ < as.length.succ} : Array.get {data := a::as} ⟨n.succ,h⟩ = Array.get {data := as} ⟨n,Nat.lt_of_succ_lt_succ h⟩ := by
+  have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
+  rw [this]
+  exact get_cons_succ a as ⟨n, Nat.lt_of_succ_lt_succ h⟩
+
 theorem set_head (a : α) (as : List α) {h : 0 < as.length.succ} (v : α) : Array.set {data := a::as} ⟨0,h⟩ v = {data := v::as} := rfl
 
 theorem set_cons_succ (a : α) (as : List α) (n : Fin as.length) (v : α) : Array.set {data := a::as} n.succ v = #[a] ++ (Array.set {data:=as} n v) := by
-  apply eq_of_data_eq_data
+  apply Array.eq
   rw [Array.set, Array.set]
   rw [Fin.val_succ_eq_succ_val]
   rw [List.set]
@@ -181,6 +225,10 @@ theorem set_cons_succ' (a : α) (as : List α) (n : Nat) (h : n.succ < as.length
   rw [this]
   rw [set_cons_succ]
 
+
+/-!
+## `Array.zipWith`
+-/
 
 section zipWith
 

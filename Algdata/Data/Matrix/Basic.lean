@@ -10,7 +10,7 @@ import Dijkstra.Control.Functor.Subreg
 import Algdata.Init.Nat
 import Algdata.Init.Fin
 import Algdata.Init.GetElem
-import Algdata.Data.Array.Basic
+import Algdata.Data.Array.Lemmas
 import Algdata.Data.Array.Modify
 
 universe u v w

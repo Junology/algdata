@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 import Std.Classes.LawfulMonad
 
-import Algdata.Data.Array.Basic
+import Algdata.Data.Array.Lemmas
 
 namespace Array
 
@@ -47,7 +47,7 @@ theorem modifyM_tail [LawfulMonad m] {α : Type _} (a : α) (as : List α) (n : 
     rw [modifyM_oor {data := a::as} n.succ f this]
     simp
     apply congrArg
-    apply eq_of_data_eq_data
+    apply Array.eq
     conv =>
       rhs; rw [append_data]; change [a] ++ as; change a::as
 
