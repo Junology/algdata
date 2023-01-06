@@ -388,4 +388,24 @@ theorem ofFn_succ {α : Type u} {n : Nat} (f : Fin n.succ → α) : (Array.ofFn 
     rw [Array.ofFn_go_succ, Array.ofFn_go_eq]
     rw [Array.append_data']
 
+/-- `Classical`-free variant of `Array.getElem_ofFn` in Std -/
+theorem getElem_ofFn' {α : Type u} {n : Nat} (f : Fin n → α) (i : Nat) (h : i < (Array.ofFn f).size) : (Array.ofFn f)[i] = f ⟨i, Array.size_ofFn f ▸ h⟩ := by
+  induction n generalizing i
+  case zero =>
+    exact absurd h (Nat.not_lt_zero i)
+  case succ n h_ind =>
+    rw [Array.getElem_eq_data_get]
+    rw [List.get_congrList (Array.ofFn_succ f)]
+    cases i
+    case zero => rfl
+    case succ i =>
+      rw [List.get_cons_succ]
+      rw [←Array.getElem_eq_data_get]
+      rw [h_ind]
+      rfl
+
+/-- The symmetric counterpart of `getElem_ofFn'` -/
+theorem getElem_ofFn'_symm {α : Type u} {n : Nat} (f : Fin n → α) (i : Fin n) : f i = (Array.ofFn f)[i.val]'((Array.size_ofFn f).symm ▸ i.isLt) :=
+  Eq.symm $ getElem_ofFn' f i.val ((Array.size_ofFn f).symm ▸ i.isLt)
+
 end Array

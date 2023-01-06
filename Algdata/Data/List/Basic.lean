@@ -16,6 +16,9 @@ variable {α : Type u}
 theorem get_congr {x y : List α} {i : Fin x.length} {j : Fin y.length} : x = y → i.val = j.val → get x i = get y j
 | rfl, h => by rw [Fin.eq_of_val_eq h]
 
+theorem get_congrList {x y : List α} {i : Fin x.length} : (h : x = y) → get x i = get y ⟨i.val, h▸i.isLt⟩
+| rfl => rfl
+
 theorem get_proof_irrev (x : List α) (i : Fin x.length) (h : i.val < x.length) : x.get i = x.get ⟨i.val, h⟩ :=
   get_congr rfl rfl
 
