@@ -79,33 +79,33 @@ theorem foldl_cons {β : Type v} (f : β → α → β) (init : β) (a : α) (as
         fun h' => hneg (Nat.lt_of_succ_lt_succ h')
       rw [dif_neg hneg, dif_neg this]
 
-theorem cons_append_data (a : α) : ∀ (as : List α) (x : Array α), (Array.append {data := a::as} x).data = a::(Array.append {data := as} x).data
+theorem cons_append_data (a : α) : ∀ (as : List α) (x : Array α), ({data := a::as} ++ x).data = a::({data := as} ++ x).data
 | as, mk bs => by
-  revert as
-  induction bs with
+  induction bs generalizing as with
   | nil => intros; rfl
   | cons b bs hi =>
-    intro as
+    rw [←Array.append_eq_append, ←Array.append_eq_append]
     unfold Array.append
     rw [foldl_cons, foldl_cons]
     exact hi (as.concat b)
 
-theorem append_nil : ∀ (x : Array α), x.append #[] = x
+theorem append_nil : ∀ (x : Array α), x ++ #[] = x
 | Array.mk [] => rfl
 | Array.mk (_::_) => rfl
 
-theorem append_cons : ∀ (x : Array α) (b : α) (bs : List α), x.append {data := b::bs} = (x.push b).append {data := bs} := by
+theorem append_cons : ∀ (x : Array α) (b : α) (bs : List α), x ++ {data := b::bs} = (x.push b) ++ {data := bs} := by
   intros x b bs
-  rw [Array.append, Array.append]
+  rw [←Array.append_eq_append, ←Array.append_eq_append]
+  unfold Array.append
   rw [foldl_cons]
 
 /-- `Classical`-free analogue of `append_data` in Std4. -/
-theorem append_data' (x y : Array α) : (x.append y).data = x.data ++ y.data := by
+theorem append_data' (x y : Array α) : (x ++ y).data = x.data ++ y.data := by
   cases y with | mk bs =>
   induction bs generalizing x
   case nil =>
     conv =>
-      change (x.append #[]).data = x.data ++ []
+      change (x ++ #[]).data = x.data ++ []
       rw [append_nil]
     rw [List.append_nil]
   case cons b bs h_ind =>
@@ -113,7 +113,7 @@ theorem append_data' (x y : Array α) : (x.append y).data = x.data ++ y.data := 
     conv => change (x.push b).data ++ bs = x.data ++ (b::bs)
     rw [push_data, ←List.append_cons]
 
-theorem nil_append : ∀ (x : Array α), #[].append x = x
+theorem nil_append : ∀ (x : Array α), #[] ++ x = x
 | Array.mk as => by
   induction as with
   | nil => rfl
@@ -127,19 +127,19 @@ theorem nil_append : ∀ (x : Array α), #[].append x = x
     rw [hi]
     rfl
 
-theorem append_push : ∀ (x y : Array α) (a : α), x.append (y.push a) = (x.append y).push a := by
+theorem append_push : ∀ (x y : Array α) (a : α), x ++ (y.push a) = (x ++ y).push a := by
   intro x y a
   cases y with | mk bs =>
   induction bs generalizing x
   case nil => rfl
   case cons b bs h_ind =>
     dsimp [Array.push, List.concat]
-    rw [←Array.append_eq_append, ←Array.append_eq_append, append_cons, append_cons]
+    rw [append_cons, append_cons]
     have : Array.mk (List.concat bs a) = Array.push {data := bs} a := rfl
     rw [this]
     exact h_ind (x.push b)
 
-theorem append_assoc : ∀ (x y z : Array α), (x.append y).append z = x.append (y.append z) := by
+theorem append_assoc : ∀ (x y z : Array α), (x ++ y) ++ z = x ++ (y ++ z) := by
   intro x y z
   cases z with | mk cs =>
   induction cs generalizing y
@@ -148,9 +148,9 @@ theorem append_assoc : ∀ (x y z : Array α), (x.append y).append z = x.append 
     rw [append_cons, append_cons, ←append_push]
     exact h_ind (y.push c)
 
-theorem push_as_append (x : Array α) (a : α) : x.push a = x.append #[a] := rfl
+theorem push_as_append (x : Array α) (a : α) : x.push a = x ++ #[a] := rfl
 
-theorem append_size : ∀ (x y : Array α), (x.append y).size = x.size + y.size
+theorem append_size : ∀ (x y : Array α), (x ++ y).size = x.size + y.size
 | mk as, y => by
   induction as with
   | nil =>
@@ -161,12 +161,12 @@ theorem append_size : ∀ (x y : Array α), (x.append y).size = x.size + y.size
     rw [Array.size, cons_append_data, List.length]
     rw [Array.size, List.length]
     rw [Nat.add_assoc, Nat.add_comm 1, ←Nat.add_assoc]
-    have : List.length (Array.append {data:=as} y).data = (Array.append {data:=as} y).size := rfl
+    have : List.length ({data:=as} ++ y).data = ({data:=as} ++ y).size := rfl
     rw [this, hi]
 
 theorem set_head (a : α) (as : List α) {h : 0 < as.length.succ} (v : α) : Array.set {data := a::as} ⟨0,h⟩ v = {data := v::as} := rfl
 
-theorem set_cons_succ (a : α) (as : List α) (n : Fin as.length) (v : α) : Array.set {data := a::as} n.succ v = #[a].append (Array.set {data:=as} n v) := by
+theorem set_cons_succ (a : α) (as : List α) (n : Fin as.length) (v : α) : Array.set {data := a::as} n.succ v = #[a] ++ (Array.set {data:=as} n v) := by
   apply eq_of_data_eq_data
   rw [Array.set, Array.set]
   rw [Fin.val_succ_eq_succ_val]
@@ -176,7 +176,7 @@ theorem set_cons_succ (a : α) (as : List α) (n : Fin as.length) (v : α) : Arr
   have : #[] = {data:=([] : List α)} := rfl
   rw [←this, nil_append]
 
-theorem set_cons_succ' (a : α) (as : List α) (n : Nat) (h : n.succ < as.length.succ) (v : α) : Array.set {data:=a::as} ⟨n+1,h⟩ v = #[a].append (Array.set {data:=as} ⟨n,Nat.lt_of_succ_lt_succ h⟩ v) := by
+theorem set_cons_succ' (a : α) (as : List α) (n : Nat) (h : n.succ < as.length.succ) (v : α) : Array.set {data:=a::as} ⟨n+1,h⟩ v = #[a] ++ Array.set {data:=as} ⟨n,Nat.lt_of_succ_lt_succ h⟩ v := by
   have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
   rw [this]
   rw [set_cons_succ]
@@ -242,7 +242,7 @@ theorem zipWithAux_cons_cons_zero (f : α → β → γ) (a : α) (as : List α)
   apply congrArg
   rfl
 
-theorem zipWithAux_buf (f : α → β → γ) : ∀ (x : Array α) (y : Array β) (n : Nat) (z : Array γ), zipWithAux f x y n z = z.append (zipWithAux f x y n #[])
+theorem zipWithAux_buf (f : α → β → γ) : ∀ (x : Array α) (y : Array β) (n : Nat) (z : Array γ), zipWithAux f x y n z = z ++ zipWithAux f x y n #[]
 | Array.mk [], y, n => by
   intros z
   have : @Array.mk α [] = #[] := rfl
@@ -264,7 +264,7 @@ theorem zipWithAux_buf (f : α → β → γ) : ∀ (x : Array α) (y : Array β
   rw [zipWithAux_cons_cons_succ, zipWithAux_cons_cons_succ]
   exact zipWithAux_buf f {data := as} {data := bs} n z
 
-theorem zipWith_cons_cons (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) : Array.zipWith {data := a::as} {data := b::bs} f = Array.append #[f a b] (Array.zipWith {data := as} {data := bs} f) := by
+theorem zipWith_cons_cons (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) : Array.zipWith {data := a::as} {data := b::bs} f = #[f a b] ++ (Array.zipWith {data := as} {data := bs} f) := by
   rw [zipWith, zipWith]
   rw [zipWithAux_buf, nil_append, zipWithAux_cons_cons_zero]
   rw [zipWithAux_buf, push_as_append, nil_append]
