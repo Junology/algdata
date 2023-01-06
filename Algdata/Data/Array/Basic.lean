@@ -99,6 +99,20 @@ theorem append_cons : ∀ (x : Array α) (b : α) (bs : List α), x.append {data
   rw [Array.append, Array.append]
   rw [foldl_cons]
 
+/-- `Classical`-free analogue of `append_data` in Std4. -/
+theorem append_data' (x y : Array α) : (x.append y).data = x.data ++ y.data := by
+  cases y with | mk bs =>
+  induction bs generalizing x
+  case nil =>
+    conv =>
+      change (x.append #[]).data = x.data ++ []
+      rw [append_nil]
+    rw [List.append_nil]
+  case cons b bs h_ind =>
+    rw [append_cons, h_ind]
+    conv => change (x.push b).data ++ bs = x.data ++ (b::bs)
+    rw [push_data, ←List.append_cons]
+
 theorem nil_append : ∀ (x : Array α), #[].append x = x
 | Array.mk as => by
   induction as with
@@ -113,27 +127,26 @@ theorem nil_append : ∀ (x : Array α), #[].append x = x
     rw [hi]
     rfl
 
-theorem append_push : ∀ (x y : Array α) (a : α), x.append (y.push a) = (x.append y).push a
-| x, Array.mk [], a => by
-  have : Array.push {data := []} a = {data := [a]} := rfl
-  rw [this, append_cons]
-  have : @Array.mk α [] = #[] := rfl
-  rw [this, append_nil, append_nil]
-| x, Array.mk (b::bs), a => by
-  rw [Array.push, List.concat]
-  rw [append_cons, append_cons]
-  have : Array.mk (List.concat bs a) = Array.push {data := bs} a := rfl
-  rw [this]
-  exact append_push (x.push b) {data := bs} a
+theorem append_push : ∀ (x y : Array α) (a : α), x.append (y.push a) = (x.append y).push a := by
+  intro x y a
+  cases y with | mk bs =>
+  induction bs generalizing x
+  case nil => rfl
+  case cons b bs h_ind =>
+    dsimp [Array.push, List.concat]
+    rw [←Array.append_eq_append, ←Array.append_eq_append, append_cons, append_cons]
+    have : Array.mk (List.concat bs a) = Array.push {data := bs} a := rfl
+    rw [this]
+    exact h_ind (x.push b)
 
-theorem append_assoc : ∀ (x y z : Array α), (x.append y).append z = x.append (y.append z)
-| x, y, Array.mk [] => by
-  have : @Array.mk α [] = #[] := rfl
-  rw [this]
-  rw [append_nil, append_nil]
-| x, y, Array.mk (c::cs) => by
-  rw [append_cons, append_cons, ←append_push]
-  exact append_assoc x (y.push c) {data := cs}
+theorem append_assoc : ∀ (x y z : Array α), (x.append y).append z = x.append (y.append z) := by
+  intro x y z
+  cases z with | mk cs =>
+  induction cs generalizing y
+  case nil => rfl
+  case cons c cs h_ind =>
+    rw [append_cons, append_cons, ←append_push]
+    exact h_ind (y.push c)
 
 theorem push_as_append (x : Array α) (a : α) : x.push a = x.append #[a] := rfl
 
