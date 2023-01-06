@@ -7,6 +7,7 @@ import Std.Data.Array.Basic
 import Std.Data.Array.Lemmas
 
 import Algdata.Init.Nat
+import Algdata.Data.Nat.Rec
 import Algdata.Data.List.Basic
 
 /-!
@@ -336,5 +337,55 @@ theorem zipWith_size (f : α → β → γ) : ∀ (x : Array α) (y : Array β),
   rw [Nat.add_comm]
 
 end zipWith
+
+
+/-!
+## `Array.ofFn` in Std
+-/
+
+theorem ofFn_go_eq {α : Type u} {n : Nat} (f : Fin n → α) {i : Nat} {acc : Array α} : Array.ofFn.go f i acc = acc ++ Array.ofFn.go f i #[] := by
+  by_cases i < n
+  case pos hlt =>
+    refine Nat.recAscend (motive:=λ i => ∀ acc, Array.ofFn.go f i acc = acc ++ Array.ofFn.go f i #[]) (n:=n) ?_ ?_ i (Nat.le_of_lt hlt) acc
+    . dsimp; unfold Array.ofFn.go
+      intro acc
+      rw [dif_neg (Nat.lt_irrefl n), dif_neg (Nat.lt_irrefl n)]
+      rfl
+    . dsimp
+      intro i hi h_ind acc
+      unfold Array.ofFn.go
+      rw [dif_pos hi, dif_pos hi]
+      rw [h_ind (acc.push _), h_ind (#[].push _)]
+      conv =>
+        rhs; rw [←Array.append_assoc]
+  case neg hnlt =>
+    unfold Array.ofFn.go
+    rw [dif_neg hnlt, dif_neg hnlt]
+    rfl
+
+theorem ofFn_go_succ {α : Type u} {n : Nat} (f : Fin n.succ → α) {i : Nat} {acc : Array α} : Array.ofFn.go f i.succ acc = Array.ofFn.go (f ∘ Fin.succ) i acc := by
+  by_cases i < n
+  case neg hnlt =>
+    have : ¬ i.succ < n.succ := λ h => absurd (Nat.lt_of_succ_lt_succ h) hnlt
+    unfold Array.ofFn.go
+    rw [dif_neg this, dif_neg hnlt]
+  case pos hlt =>
+    refine Nat.recAscend (motive:=λ i =>∀ acc, Array.ofFn.go f i.succ acc = Array.ofFn.go (f ∘ Fin.succ) i acc) ?_ ?_ i (Nat.le_of_lt hlt) acc
+      <;> dsimp
+    . intro acc
+      unfold Array.ofFn.go
+      rw [dif_neg (Nat.lt_irrefl n.succ), dif_neg (Nat.lt_irrefl n)]
+    . intro i hi h_ind acc
+      unfold Array.ofFn.go
+      rw [dif_pos (Nat.succ_lt_succ hi), dif_pos hi]
+      rw [h_ind]
+      rfl
+
+theorem ofFn_succ {α : Type u} {n : Nat} (f : Fin n.succ → α) : (Array.ofFn f).data = f ⟨0,Nat.zero_lt_succ n⟩ :: (Array.ofFn (f ∘ Fin.succ)).data := by
+  conv =>
+    lhs; unfold Array.ofFn; unfold Array.ofFn.go
+    rw [dif_pos n.zero_lt_succ]
+    rw [Array.ofFn_go_succ, Array.ofFn_go_eq]
+    rw [Array.append_data']
 
 end Array
