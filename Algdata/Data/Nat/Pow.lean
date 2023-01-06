@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
 import Algdata.Init.Nat
+import Algdata.Data.Nat.Rec
 
 /-!
 # Power functions
@@ -75,55 +76,53 @@ def sqPow (a : α) (n : @& Nat) : α := loop n 1 a
         loop (Nat.shiftRight n 1) res' (base*base)
     termination_by _ n _ _ => n
 
-theorem sqPow_zero (a : α) : sqPow a 0 = 1 := rfl
-
 theorem sqPow_loop_eq (mul_one : ∀ (a : α), a * 1 = a) (assoc : ∀ (a b c : α), (a * b) * c = a * (b * c)) (n : Nat) (a b : α) : sqPow.loop n a b = a * sqPow b n := by
-  revert a b; apply n.rec_even_odd
-  case base => intros a _; exact (mul_one a).symm
-  case even =>
-    intro k hpos h_ind a b
-    have : 2*k > 0 :=
-      calc
-        0 < k + k := Nat.lt_add_right 0 k k hpos
-        _ = 2*k := by simp only [Nat.add_mul 1 1 k, Nat.one_mul]
+  induction n using recBase2 generalizing a b
+  case zero => exact (mul_one a).symm
+  case one =>
+    conv =>
+      unfold sqPow; unfold sqPow.loop
+      rw [dif_neg Nat.one_ne_zero, dif_neg Nat.one_ne_zero]; dsimp [shiftRight]
+      change sqPow.loop 0 (a*b) (b*b) = a * sqPow.loop 0 (1*b) (b*b)
+      unfold sqPow.loop
+      rw [dif_pos rfl, dif_pos rfl]
+      rw [←assoc, mul_one]
+  case next0 n h_ind =>
     unfold sqPow; unfold sqPow.loop
-    rw [dif_neg (Nat.ne_of_gt this)]; rw [dif_neg (Nat.ne_of_gt this)]
-    dsimp
+    have : 2 * n.succ ≠ 0 := by rw [mul_succ]; exact Nat.succ_ne_zero _
+    rw [dif_neg this, dif_neg this]; dsimp
     rw [Nat.shiftRight_one, Nat.land_one]
     rw [Nat.mul_div_cancel_left _ (Nat.zero_lt_succ 1)]
     rw [if_pos (Nat.mul_mod_right _ _)]; rw [if_pos (Nat.mul_mod_right _ _)]
     rw [h_ind]
     rfl
-  case odd =>
-    intro k h_ind a b
-    have : 2*k + 1 > 0 := Nat.zero_lt_succ _
+  case next1 n h_ind =>
     unfold sqPow; unfold sqPow.loop
-    rw [dif_neg (Nat.ne_of_gt this)]; rw [dif_neg (Nat.ne_of_gt this)]
+    rw [dif_neg (Nat.succ_ne_zero _), dif_neg (Nat.succ_ne_zero _)]
     simp only [Nat.shiftRight_one, Nat.land_one]
-    have : (2*k+1)/2 = k := by
+    have : (2*n.succ+1)/2 = n.succ := by
       rw [Nat.add_comm, Nat.add_mul_div_left _ _ (y:=2) (Nat.zero_lt_succ 1)]
       have : 1 / 2 = 0 := rfl; rw [this]
       exact Nat.zero_add _
-    have : (2*k+1)%2 = 1 := by
+    have : (2*n.succ+1)%2 = 1 := by
       rw [Nat.add_comm, Nat.add_mul_mod_self_left]
       rfl
-    rw [this, ‹(2*k+1)/2=k›, if_neg Nat.one_ne_zero, if_neg Nat.one_ne_zero]
+    rw [this, ‹(2*n.succ+1)/2=n.succ›, if_neg Nat.one_ne_zero, if_neg Nat.one_ne_zero]
     rw [h_ind, h_ind]
     conv =>
       rhs; rw [←assoc a, ←assoc a, mul_one a]
 
+theorem sqPow_zero (a : α) : sqPow a 0 = 1 := rfl
 
-#print axioms sqPow_loop_eq
+theorem sqPow_one (a : α) : sqPow a 1 = 1 * a := by
+  conv =>
+    lhs; unfold sqPow; unfold sqPow.loop; whnf
 
-theorem sqPow_even (a : α) (k : Nat) : k > 0 → sqPow a (2*k) = sqPow (a*a) k := by
-  intro hkpos
-  have : 2*k > 0 :=
-    calc
-      0 < k + k := Nat.lt_add_right 0 k k hkpos
-      _ = 2*k := by simp only [Nat.add_mul 1 1, Nat.one_mul]
+theorem sqPow_even (a : α) (k : Nat) : sqPow a (2*k.succ) = sqPow (a*a) k.succ := by
+  have : 2 * k.succ ≠ 0 := by rw [Nat.mul_succ]; exact Nat.succ_ne_zero _
   conv =>
     lhs; unfold sqPow; unfold sqPow.loop
-    rw [dif_neg (Nat.ne_of_gt this)]
+    rw [dif_neg this]
     dsimp
     rw [Nat.shiftRight_one, Nat.land_one]
     rw [Nat.mul_div_cancel_left _ (Nat.zero_lt_succ 1)]
@@ -144,30 +143,26 @@ theorem sqPow_odd (mul_one : ∀ (a : α), a * 1 = a) (one_mul : ∀ (a : α), 1
     rw [‹(2*k+1)/2=k›, ‹(2*k+1)%2=1›, if_neg Nat.one_ne_zero]
     rw [sqPow_loop_eq mul_one assoc, one_mul]
 
-#print axioms sqPow_even
-#print axioms sqPow_odd
-
 
 /-!
 ## Comparison of powers
 -/
 
 theorem sqPow_eq_gpow {α : Type _} [OfNat α (nat_lit 1)] [HMul α α α] (mul_one : ∀ (a : α), a * 1 = a) (one_mul : ∀ (a : α), 1 * a = a) (assoc : ∀ (a b c : α), (a*b)*c = a*(b*c)) : ∀ (a : α) (n : Nat), sqPow a n = gpow a n := by
-  intro a n; revert a
-  apply n.rec_even_odd
-  case base => intros; rfl
-  case even =>
-    intro k hpos h_ind a
+  intro a n
+  induction n using recBase2 generalizing a
+  case zero => intros; rfl
+  case one => rw [sqPow_one, one_mul]; dsimp [gpow]; rw [mul_one]
+  case next0 n h_ind =>
     conv =>
-      lhs; rw [sqPow_even a k hpos, h_ind]
+      lhs; rw [sqPow_even a n, h_ind]
     conv =>
       rhs; rw [gpow_mul one_mul assoc]; lhs; change a * (a * 1); rw [mul_one]
-  case odd =>
-    intro k h_ind a
+  case next1 n h_ind =>
     conv =>
       lhs; rw [sqPow_odd mul_one one_mul assoc, h_ind]
     conv =>
-      rhs; rw [Nat.add_comm, gpow_add one_mul assoc, gpow_mul one_mul assoc a 2 k]
+      rhs; rw [Nat.add_comm, gpow_add one_mul assoc, gpow_mul one_mul assoc a 2 n.succ]
       dsimp [gpow]
       rw [mul_one]
 
