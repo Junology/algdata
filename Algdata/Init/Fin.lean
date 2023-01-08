@@ -45,6 +45,18 @@ def lexFold {m n : Nat} (x : Fin m) (y : Fin n) : Fin (m*n) where
 def lexFold_inj {m n : Nat} {x₁ x₂ : Fin m} {y₁ y₂ : Fin n} (h : lexFold x₁ y₁ = lexFold x₂ y₂) : x₁ = x₂ ∧ y₁ = y₂ :=
   lexfold_inj (congrArg val h)
 
+/--
+Analogue of `Nat.foldM`; this traverses all elements of `Fin n` in the ascending order.
+@todo Compare it with the following implementation regarding the perfomance:
+```
+@[inline]
+def foldAllM' {α : Type u} (f : Fin n → α → m α) (init : α) : m α :=
+  let rec @[specialize] loop : (k : Nat) → k ≤ n → α → m α
+  | 0, _, x => pure x
+  | k+1, h, x => f ⟨n-k-1, Nat.sub_lt_self k.zero_lt_succ h⟩ x >>= loop k (Nat.le_of_succ_le h)
+  loop n n.le.refl init
+```
+-/
 @[inline]
 def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (f : Fin n → α → m α) (init : α) : m α :=
   let rec @[specialize] loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
@@ -65,6 +77,21 @@ def forAllM {m : Type u → Type v} [Monad m] {n : Nat} (f : Fin n → m PUnit) 
     f ⟨i,Nat.lt_of_add_succ_eq h⟩
     loop i.succ k (by rw [←h, Nat.add_succ, Nat.succ_add])
   loop 0 n (Nat.zero_add n)
+
+theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {f : Fin (n+1) → α → m α} {i : Nat} {a : α} {k : Nat} {h : i+(k+1)=n+1} : Fin.foldAllM.loop f i a (k+1) h = f ⟨i, Nat.lt_of_add_succ_eq h⟩ a >>= λ b => Fin.foldAllM.loop (f ∘ Fin.succ) i b k (Nat.succ.inj h) := by
+  induction k generalizing n f i a
+  case zero => rfl
+  case succ k h_ind =>
+    conv =>
+      lhs
+      change do loop f i.succ (← f ⟨i,Nat.lt_of_add_succ_eq h⟩ a) k.succ (by rw [←h]; rw [Nat.add_succ, Nat.succ_add, Nat.add_succ]; rfl)
+    apply bind_congr; intro b
+    rw [h_ind]
+    rfl
+
+theorem foldAllM_zero {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin 0 → α → m α} : Fin.foldAllM f init = pure (f:=m) init := rfl
+theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f ⟨0, Nat.zero_lt_succ n⟩ init >>= Fin.foldAllM (f ∘ Fin.succ) := by
+  dsimp [foldAllM]; rw [Fin.foldAllM.loop_succ]
 
 protected
 def elementList : (n : Nat) → List (Fin n)
