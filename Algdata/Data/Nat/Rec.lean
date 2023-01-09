@@ -98,5 +98,29 @@ def recBase2 {motive : Nat → Sort u} (zero : motive 0) (one : motive 1) (next0
     this ▸ next1 (n/2) (recBase2 zero one next0 next1 (n/2 + 1))
 decreasing_by exact recBase2_terminates _
 
+@[inline]
+def recBase2' {motive : Nat → Sort u} (zero : motive 0) (one : motive 1) (div2 : (n : Nat) → motive (n/2 + 1) → motive (n + 2)) (n : Nat) : motive n :=
+  n.recComplete $ λ n ind =>
+    match n with
+    | 0 => zero
+    | 1 => one
+    | n+2 =>
+      have : n/2 + 1 < n+2 := calc
+        n/2 + 1 = (n+2)/2 := Eq.symm $ Nat.add_div_right _ (Nat.zero_lt_succ 1)
+        _       < n+2     := Nat.div_lt_self (Nat.zero_lt_succ _) (Nat.lt.base 1)
+      div2 n (ind _ this)
+
+section recBase2_rec
+
+variable {motive : Nat → Sort u} {zero : motive 0} {one : motive 1} {div2 : (n : Nat) → motive (n/2 + 1) → motive (n+2)}
+
+theorem recBase2'_zero : recBase2' zero one div2 0 = zero := rfl
+theorem recBase2'_one : recBase2' zero one div2 1 = one := rfl
+theorem recBase2'_add2 {n : Nat} : recBase2' zero one div2 (n+2) = div2 n (recBase2' zero one div2 (n/2+1)) := by
+  unfold recBase2'; rw [recComplete_eq, recComplete_eq]
+  conv =>
+    lhs; unfold recCompleteWF
+
+end recBase2_rec
 
 end Nat

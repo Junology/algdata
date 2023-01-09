@@ -21,14 +21,15 @@ namespace Nat
 
 /-- Bit-wise folding operation -/
 def foldBitsL {α : Type u} (f : α → Bool → α) (init : α) (n : Nat) : α :=
-  n.recBase2 (motive:=λ _ => α) init (f init true) (λ _ a => f a false) (λ _ a => f a true)
+  n.recBase2' (motive:=λ _ => α) init (f init true) (λ n a => f a (n % 2 == 1))
 
 def countBits (n : Nat) : Nat := n.foldBitsL (λ n b => n + b.toUInt64.val.val) 0
 
 def toDigitsBase2 (n : Nat) (pre : String := "0b"): String := n.foldBitsL (λ s b => s ++ if b then "1" else "0") pre
 
 -- test
-example : toDigitsBase2 0x55 "pre" = "pre1010101" := by conv => lhs; whnf
+example : countBits 0b1001010111 = 6 := rfl
+example : toDigitsBase2 0x55 "pre" = "pre1010101" := rfl
 
 theorem or_zero (n : Nat) : n ||| 0 = n := by
   dsimp [HOr.hOr, OrOp.or, Nat.lor]; unfold Nat.bitwise
@@ -60,13 +61,16 @@ theorem shiftLeft_one_or_one (n : Nat) : (n <<< 1) ||| 1 = 2*n + 1 := by
   apply or_one_eq_add_one
   exact Nat.mul_mod_right 2 n
 
-def recBits {motive : Nat → Prop} (zero : motive 0) (one : motive 1) (shift0 : ∀ (n : Nat), motive n.succ → motive (n.succ <<< 1)) (shift1 : ∀ (n : Nat), motive n.succ → motive ((n.succ <<< 1) ||| 1)) (n : Nat) : motive n := by
-  induction n using recBase2
+def recBits {motive : Nat → Prop} (zero : motive 0) (one : motive 1) (shift : ∀ (n : Nat), motive (n >>> 1) → motive n) (n : Nat) : motive n := by
+  induction n using recBase2'
   case zero => exact zero
   case one => exact one
-  case next0 => rw [←shiftLeft_one]; exact shift0 ‹_› ‹_›
-  case next1 => rw [←shiftLeft_one_or_one]; exact shift1 ‹_› ‹_›
-
+  case div2 n h_ind =>
+    apply shift (n+2)
+    have : (n+2) >>> 1 = n/2 + 1 := calc
+      (n+2) >>> 1 = (n+2)/2 := Nat.shiftRight_one _
+      _           = (n/2) + 1 := Nat.add_div_right _ (Nat.zero_lt_succ 1)
+    exact this ▸ h_ind
 
 /-!
 ## `Classical`-free variant of `Nat.log2`
@@ -86,6 +90,27 @@ theorem log2_terminates' : ∀ n, n ≥ 2 → n / 2 < n
 def log2' (n : @& Nat) : Nat :=
   if n ≥ 2 then log2' (n / 2) + 1 else 0
 decreasing_by exact log2_terminates' _ ‹_›
+
+/--
+Yet another `Classical`-free version of `Nat.log2.
+It also avoids the use of well-founded recursion by using `Nat.recComplete`.
+As a result, Lean can realize the second equality in contrast to the first:
+```lean
+example : log2 0b1000 = 3 := rfl    -- error
+example : log2'' 0b1000 = 3 := rfl  -- ok
+```
+-/
+@[implemented_by Nat.log2]
+def log2'' (n : @& Nat) : Nat :=
+  n.recComplete (motive:=λ _=>Nat) $ λ n ind =>
+    match n with
+    | 0 => 0
+    | 1 => 0
+    | n+2 =>
+      have : n/2 + 1 < n+2 := Nat.succ_lt_succ $ calc
+        n/2 ≤ n := Nat.div_le_self n 2
+        _   < n+1 := n.lt_succ_self
+      1 + ind (n / 2 + 1) this
 
 theorem log2_eq (n : Nat) : log2' n = Nat.log2 n :=
   if h : n ≥ 2 then by

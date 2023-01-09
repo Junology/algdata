@@ -166,4 +166,39 @@ theorem sqPow_eq_gpow {α : Type _} [OfNat α (nat_lit 1)] [HMul α α α] (mul_
       dsimp [gpow]
       rw [mul_one]
 
+def sqPow' (a : α) (n : @& Nat) : α :=
+  n.recBase2' (motive:=λ _ => α) 1 a $ λ n x => if n % 2 = 1 then a * x * x else x * x
+
+theorem sqPow'_eq_gpow {α : Type _} [OfNat α (nat_lit 1)] [HMul α α α] (mul_one : ∀ (a : α), a * 1 = a) (one_mul : ∀ (a : α), 1 * a = a) (assoc : ∀ (a b c : α), (a*b)*c = a*(b*c)) : ∀ (a : α) (n : Nat), sqPow' a n = gpow a n := by
+  intro a n
+  unfold sqPow'
+  induction n using recBase2' generalizing a
+  case zero => rfl
+  case one =>
+    rw [recBase2'_one]
+    exact (mul_one a).symm
+  case div2 n h_ind =>
+    rw [recBase2'_add2]
+    rw [h_ind a]
+    by_cases n % 2 = 1
+    case pos hodd =>
+      rw [if_pos hodd]
+      conv =>
+        lhs; change gpow a (n/2 + 2) * gpow a (n/2 + 1)
+        rw [←gpow_add one_mul assoc]
+      apply congrArg
+      conv =>
+        lhs; rw [Nat.add_assoc, ←Nat.add_assoc 2 (n/2) 1, Nat.add_comm 2, Nat.add_assoc _ 2 1, ←Nat.add_assoc]
+        rw [←Nat.mul_two, Nat.mul_comm, Nat.add_comm 2 1, ←Nat.add_assoc, ←hodd]
+        rw [Nat.div_add_mod]
+    case neg heven =>
+      rw [if_neg heven]
+      rw [←gpow_add one_mul assoc]
+      have : n % 2 = 0 := Or.resolve_right (Nat.mod_two_eq_zero_or_one n) heven
+      apply congrArg
+      conv =>
+        lhs; rw [Nat.add_assoc, ←Nat.add_assoc 1, Nat.add_comm 1, Nat.add_assoc _ 1 1, ←Nat.add_assoc]
+        rw [←Nat.mul_two, Nat.mul_comm, ←Nat.add_zero (2*(n/2)), ←this]
+        rw [Nat.div_add_mod]
+
 end Nat
