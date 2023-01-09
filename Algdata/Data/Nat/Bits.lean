@@ -21,7 +21,7 @@ namespace Nat
 
 /-- Bit-wise folding operation -/
 def foldBitsL {α : Type u} (f : α → Bool → α) (init : α) (n : Nat) : α :=
-  n.recBase2' (motive:=λ _ => α) init (f init true) (λ n a => f a (n % 2 == 1))
+  n.recBase2 (motive:=λ _ => α) init (f init true) (λ n a => f a (n % 2 == 1))
 
 def countBits (n : Nat) : Nat := n.foldBitsL (λ n b => n + b.toUInt64.val.val) 0
 
@@ -62,7 +62,7 @@ theorem shiftLeft_one_or_one (n : Nat) : (n <<< 1) ||| 1 = 2*n + 1 := by
   exact Nat.mul_mod_right 2 n
 
 def recBits {motive : Nat → Prop} (zero : motive 0) (one : motive 1) (shift : ∀ (n : Nat), motive (n >>> 1) → motive n) (n : Nat) : motive n := by
-  induction n using recBase2'
+  induction n using recBase2
   case zero => exact zero
   case one => exact one
   case div2 n h_ind =>
@@ -76,23 +76,8 @@ def recBits {motive : Nat → Prop} (zero : motive 0) (one : motive 1) (shift : 
 ## `Classical`-free variant of `Nat.log2`
 -/
 
-theorem log2_terminates' : ∀ n, n ≥ 2 → n / 2 < n
-  | 2, _ => by decide
-  | 3, _ => by decide
-  | n+4, _ => by
-    rw [Nat.div_eq, if_pos]
-    refine Nat.succ_lt_succ (Nat.lt_trans ?_ (Nat.lt_succ_self _))
-    exact log2_terminates' (n+2) (Nat.add_comm _ _ ▸ Nat.le.intro rfl)
-    exact And.intro (Nat.zero_lt_succ 1) ‹n+4 ≥ 2›
-
---- axiom-free version of `Nat.log2`
-@[implemented_by Nat.log2]
-def log2' (n : @& Nat) : Nat :=
-  if n ≥ 2 then log2' (n / 2) + 1 else 0
-decreasing_by exact log2_terminates' _ ‹_›
-
 /--
-Yet another `Classical`-free version of `Nat.log2.
+A `Classical`-free version of `Nat.log2.
 It also avoids the use of well-founded recursion by using `Nat.recComplete`.
 As a result, Lean can realize the second equality in contrast to the first:
 ```lean
@@ -101,60 +86,41 @@ example : log2'' 0b1000 = 3 := rfl  -- ok
 ```
 -/
 @[implemented_by Nat.log2]
-def log2'' (n : @& Nat) : Nat :=
-  n.recComplete (motive:=λ _=>Nat) $ λ n ind =>
-    match n with
-    | 0 => 0
-    | 1 => 0
-    | n+2 =>
-      have : n/2 + 1 < n+2 := Nat.succ_lt_succ $ calc
-        n/2 ≤ n := Nat.div_le_self n 2
-        _   < n+1 := n.lt_succ_self
-      1 + ind (n / 2 + 1) this
+def log2' (n : @& Nat) : Nat :=
+  n.recBase2 (motive:=λ _=>Nat) 0 0 $ λ _ x => x+1
 
-theorem log2_eq (n : Nat) : log2' n = Nat.log2 n :=
-  if h : n ≥ 2 then by
-    unfold log2'; unfold Nat.log2
-    rw [log2_eq (n / 2)]
-  else by
-    unfold log2'; unfold Nat.log2
-    rw [if_neg h, if_neg h]
-decreasing_by exact log2_terminates' _ ‹_›
+example : log2' 0x100 = 8 := rfl
+example : log2' 0x1FF = 8 := rfl
+example : log2' 0x200 = 9 := rfl
+
+theorem log2'_eq (n : Nat) : log2' n = Nat.log2 n := by
+  unfold log2'
+  induction n using recBase2
+  case zero => rfl
+  case one => rfl
+  case div2 n h_ind =>
+    rw [recBase2_div2, h_ind]
+    conv =>
+      rhs; unfold log2; rw [if_pos (Nat.le_add_left 2 n), Nat.add_div_right n (Nat.zero_lt_succ 1)]
 
 theorem log2'_mul2 (n : Nat) : log2' (2*n.succ) = (log2' n.succ) + 1 := by
   conv =>
-    lhs; unfold log2'; dsimp
-    tactic => have : 2 * n.succ ≥ 2 := by {
-      rw [Nat.mul_succ, Nat.add_comm]; exact Nat.le.intro rfl
-    }
-    rw [if_pos this]
-    rw [Nat.mul_div_right _ (Nat.zero_lt_succ 1)]
+    lhs; rw [Nat.mul_succ 2 n]; unfold log2'; rw [recBase2_div2]
+    change log2' (2*n/2 + 1) + 1
+    rw [Nat.mul_div_right n (Nat.zero_lt_succ 1)]
 
 #print axioms Nat.log2'_mul2
 
-theorem zero_or_one_of_log2' (n : Nat) : n.log2' = 0 → n = 0 ∨ n = 1:= by
-  cases n
-  case zero => intros; exact Or.inl rfl
-  case succ n =>
-    unfold log2'
-    cases n
-    case zero => intros; exact Or.inr rfl
-    case succ n =>
-      have : n.succ.succ ≥ 2 := by
-        conv => lhs; change n + 2
-        exact Nat.add_comm _ _ ▸ Nat.le.intro rfl
-      rw [if_pos this]
-      intro hcontra
-      exact absurd hcontra (Nat.succ_ne_zero _)
+theorem zero_or_one_of_log2' : ∀ (n : Nat), n.log2' = 0 → n = 0 ∨ n = 1
+| 0, _ => Or.inl rfl
+| 1, _ => Or.inr rfl
+| _+2, h => by
+  conv at h => unfold log2'; rw [recBase2_div2]
+  cases h
 
-theorem ge_two_of_log2' (n : Nat) : n.log2' > 0 → n ≥ 2 := by
-  unfold log2'
-  cases Nat.lt_or_ge n 2
-  case inl hlt =>
-    rw [if_neg (Nat.not_le_of_gt hlt)]
-    intro hcontra; exact absurd hcontra (Nat.not_lt_zero _)
-  case inr hge =>
-    rw [if_pos hge]
-    intros; exact hge
+theorem ge_two_of_log2' : ∀ (n : Nat), n.log2' > 0 → n ≥ 2
+| 0, h => by unfold log2' at h; rw [recBase2_zero] at h; cases h
+| 1, h => by unfold log2' at h; rw [recBase2_one] at h; cases h
+| _+2, _ => by rw [Nat.add_comm]; exact Nat.le.intro rfl
 
 end Nat

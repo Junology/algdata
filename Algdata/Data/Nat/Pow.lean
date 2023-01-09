@@ -67,7 +67,7 @@ end ExponentLaw
 --- exponentiation by squaring
 @[specialize,inline]
 def sqPow (a : α) (n : @& Nat) : α :=
-  n.recBase2' (motive:=λ _ => α) 1 a $ λ n x => if n % 2 = 1 then a * x * x else x * x
+  n.recBase2 (motive:=λ _ => α) 1 a $ λ n x => if n % 2 = 1 then a * x * x else x * x
 
 
 /-!
@@ -77,13 +77,13 @@ def sqPow (a : α) (n : @& Nat) : α :=
 theorem sqPow_eq_gpow {α : Type _} [OfNat α (nat_lit 1)] [HMul α α α] (mul_one : ∀ (a : α), a * 1 = a) (one_mul : ∀ (a : α), 1 * a = a) (assoc : ∀ (a b c : α), (a*b)*c = a*(b*c)) : ∀ (a : α) (n : Nat), sqPow a n = gpow a n := by
   intro a n
   unfold sqPow
-  induction n using recBase2' generalizing a
+  induction n using recBase2 generalizing a
   case zero => rfl
   case one =>
-    rw [recBase2'_one]
+    rw [recBase2_one]
     exact (mul_one a).symm
   case div2 n h_ind =>
-    rw [recBase2'_add2]
+    rw [recBase2_div2]
     rw [h_ind a]
     by_cases n % 2 = 1
     case pos hodd =>
