@@ -31,12 +31,9 @@ def recComplete {motive : Nat → Sort u} (ind : (n : Nat) → (∀ (k : Nat), k
   | 0, k, hk =>
     have : k = 0 := Nat.eq_zero_of_le_zero hk
     ind k (λ l hl => absurd (this ▸ hl) l.not_lt_zero)
-  | (n+1), k, hk =>
-    if hlt : k < n + 1
-    then aux n k (Nat.le_of_lt_succ hlt)
-    else
-      have : k = n+1 := Nat.le_antisymm hk (Nat.le_of_not_lt hlt)
-      ind k (λ l hl => aux n l (Nat.le_of_lt_succ (Trans.trans hl this)))
+  | _+1, 0, _ => ind 0 (λ k hk => absurd hk k.not_lt_zero)
+  | n+1, k+1, hk =>
+    ind (k+1) (λ l hl => aux n l (Nat.le_of_lt_succ $ Trans.trans hl hk))
   aux n n n.le_refl
 
 /-- Proof that the two implememtations of the complete induction are equivalent. -/
@@ -51,15 +48,13 @@ theorem recComplete_eq {motive : Nat → Sort u} {ind : (n : Nat) → (∀ (k : 
     cases this
     apply congrArg; funext k hk; cases hk
   case succ n h_ind =>
-    dsimp [recComplete.aux]
-    cases Nat.lt_or_eq_of_le hk
-    case inl hlt =>
-      rw [dif_pos hlt, h_ind k (Nat.le_of_lt_succ hlt)]
-    case inr heq =>
-      cases heq; unfold recCompleteWF
-      rw [dif_neg (Nat.lt_irrefl n.succ)]
-      apply congrArg; funext k hk
-      rw [h_ind k (Nat.le_of_lt_succ hk)]
+    cases k
+    case zero =>
+      dsimp [recComplete.aux]; unfold recCompleteWF
+      apply congrArg; funext k hk; cases hk
+    case succ k =>
+      dsimp [recComplete.aux]; unfold recCompleteWF
+      apply congrArg; funext k hk; rw [h_ind]
   
 
 /-!
