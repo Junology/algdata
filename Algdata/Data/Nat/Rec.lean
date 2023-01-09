@@ -19,8 +19,14 @@ namespace Nat
 Given a predicate `p : Nat → Prop`, one can conclude `∀ n, p n` provided `∀ n, (∀ k, k < n → p k) → p n`.
 -/
 
-/-- Complete induction -/
-def recComplete {motive : Nat → Sort u} (ind : (n : Nat) → (∀ (k : Nat), k < n → motive k) → motive n) (n : Nat): motive n :=
+/-- Complete induction using well-founded recursion -/
+@[inline]
+def recCompleteWF {motive : Nat → Sort u} (ind : (n : Nat) → (∀ (k : Nat), k < n → motive k) → motive n) (n : Nat) : motive n :=
+  ind n (λ k _ => recCompleteWF ind k)
+
+/-- Complete induction without well-founded recursion -/
+@[implemented_by recCompleteWF]
+def recComplete {motive : Nat → Sort u} (ind : (n : Nat) → (∀ (k : Nat), k < n → motive k) → motive n) (n : Nat) : motive n :=
   let rec aux : (n k : Nat) → k ≤ n → motive k
   | 0, k, hk =>
     have : k = 0 := Nat.eq_zero_of_le_zero hk
@@ -33,6 +39,28 @@ def recComplete {motive : Nat → Sort u} (ind : (n : Nat) → (∀ (k : Nat), k
       ind k (λ l hl => aux n l (Nat.le_of_lt_succ (Trans.trans hl this)))
   aux n n n.le_refl
 
+/-- Proof that the two implememtations of the complete induction are equivalent. -/
+theorem recComplete_eq {motive : Nat → Sort u} {ind : (n : Nat) → (∀ (k : Nat), k < n → motive k) → motive n} {n : Nat} : recComplete (motive:=motive) ind n = recCompleteWF (motive:=motive) ind n := by
+  suffices ∀ k (hk : k ≤ n), recComplete.aux (motive:=motive) ind n k hk = recCompleteWF (motive:=motive) ind k
+    from this n n.le_refl
+  intro k hk
+  induction n generalizing k
+  case zero =>
+    dsimp [recComplete.aux]; unfold recCompleteWF
+    have : k = 0 := k.eq_zero_of_le_zero hk
+    cases this
+    apply congrArg; funext k hk; cases hk
+  case succ n h_ind =>
+    dsimp [recComplete.aux]
+    cases Nat.lt_or_eq_of_le hk
+    case inl hlt =>
+      rw [dif_pos hlt, h_ind k (Nat.le_of_lt_succ hlt)]
+    case inr heq =>
+      cases heq; unfold recCompleteWF
+      rw [dif_neg (Nat.lt_irrefl n.succ)]
+      apply congrArg; funext k hk
+      rw [h_ind k (Nat.le_of_lt_succ hk)]
+  
 
 /-!
 ## Ascending recursion with upper bound. -/
