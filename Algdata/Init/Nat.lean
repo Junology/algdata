@@ -120,6 +120,12 @@ theorem sub_lt_of_lt_add {l m n : Nat} : l ≥ n → l < m + n → l-n < m := by
   rw [Nat.sub_add_cancel hln]
   assumption
 
+theorem mod_mul_mod (a b n : Nat) : a % n * b % n = (a*b)%n :=
+  Eq.symm $ calc
+    a * b % n = (n*(a/n) + a % n) * b % n := by conv => lhs; rw [←Nat.div_add_mod a n]
+    _         = (n * (a/n * b) + a % n * b) % n := by rw [Nat.right_distrib, Nat.mul_assoc]
+    _         = a % n * b % n := by rw [Nat.add_comm,Nat.add_mul_mod_self_left]
+
 theorem div_mod_unique (n : Nat) : ∀ {q₁ q₂ r₁ r₂ : Nat}, r₁ < n → r₂ < n → q₁*n + r₁ = q₂*n + r₂ → q₁=q₂ ∧ r₁=r₂ := by
   intros q₁ q₂ r₁ r₂ hr₁ hr₂ heq
   suffices q₁ = q₂ by

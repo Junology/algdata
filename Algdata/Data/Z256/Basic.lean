@@ -55,7 +55,7 @@ def sub (x y : ℤ256) : ℤ256 := mk (x.val - y.val)
 
 @[inline]
 protected
-def neg (x : ℤ256) : ℤ256 := ℤ256.sub ℤ256.zero x
+def neg (x : ℤ256) : ℤ256 := mk (0 - x.val)
 
 @[inline]
 protected
