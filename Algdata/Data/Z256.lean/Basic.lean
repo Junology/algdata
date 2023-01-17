@@ -61,34 +61,36 @@ def neg (x : ℤ256) : ℤ256 := mk (~~~x.val + 1)
 protected
 def mul (x y : ℤ256) : ℤ256 := mk (x.val * y.val)
 
+/-- @remark `instOfNatNat` has priority 100. -/
+@[default_instance 50]
 instance (n : Nat) : OfNat ℤ256 n := ⟨ℤ256.ofNat n⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 0) := ⟨ℤ256.zero⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 1) := ⟨ℤ256.one⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 2) := ⟨mk (.raw 2 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 3) := ⟨mk (.raw 3 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 4) := ⟨mk (.raw 4 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 5) := ⟨mk (.raw 5 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 6) := ⟨mk (.raw 6 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 7) := ⟨mk (.raw 7 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 8) := ⟨mk (.raw 8 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 0x10) := ⟨mk (.raw 0x10 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 0x20) := ⟨mk (.raw 0x20 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 0x40) := ⟨mk (.raw 0x40 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 0x80) := ⟨mk (.raw 0x80 (by decide))⟩
-@[default_instance 200]
+@[default_instance 80]
 instance : OfNat ℤ256 (nat_lit 0xFF) := ⟨mk (.raw 0xFF 0xFF.lt_succ_self)⟩
 
 instance : Add ℤ256 := ⟨ℤ256.add⟩
