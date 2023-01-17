@@ -55,43 +55,28 @@ def sub (x y : ℤ256) : ℤ256 := mk (x.val - y.val)
 
 @[inline]
 protected
-def neg (x : ℤ256) : ℤ256 := mk (~~~x.val + 1)
+def neg (x : ℤ256) : ℤ256 := ℤ256.sub ℤ256.zero x
 
 @[inline]
 protected
 def mul (x y : ℤ256) : ℤ256 := mk (x.val * y.val)
 
 /-- @remark `instOfNatNat` has priority 100. -/
-@[default_instance 50]
-instance (n : Nat) : OfNat ℤ256 n := ⟨ℤ256.ofNat n⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 0) := ⟨ℤ256.zero⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 1) := ⟨ℤ256.one⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 2) := ⟨mk (.raw 2 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 3) := ⟨mk (.raw 3 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 4) := ⟨mk (.raw 4 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 5) := ⟨mk (.raw 5 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 6) := ⟨mk (.raw 6 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 7) := ⟨mk (.raw 7 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 8) := ⟨mk (.raw 8 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 0x10) := ⟨mk (.raw 0x10 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 0x20) := ⟨mk (.raw 0x20 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 0x40) := ⟨mk (.raw 0x40 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 0x80) := ⟨mk (.raw 0x80 (by decide))⟩
-@[default_instance 80]
-instance : OfNat ℤ256 (nat_lit 0xFF) := ⟨mk (.raw 0xFF 0xFF.lt_succ_self)⟩
+instance (priority := 50) (n : Nat) : OfNat ℤ256 n := ⟨ℤ256.ofNat n⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 0) := ⟨ℤ256.zero⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 1) := ⟨ℤ256.one⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 2) := ⟨mk (.raw 2 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 3) := ⟨mk (.raw 3 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 4) := ⟨mk (.raw 4 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 5) := ⟨mk (.raw 5 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 6) := ⟨mk (.raw 6 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 7) := ⟨mk (.raw 7 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 8) := ⟨mk (.raw 8 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 0x10) := ⟨mk (.raw 0x10 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 0x20) := ⟨mk (.raw 0x20 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 0x40) := ⟨mk (.raw 0x40 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 0x80) := ⟨mk (.raw 0x80 (by decide))⟩
+instance (priority := 80) : OfNat ℤ256 (nat_lit 0xFF) := ⟨mk (.raw 0xFF 0xFF.lt_succ_self)⟩
 
 instance : Add ℤ256 := ⟨ℤ256.add⟩
 instance : Sub ℤ256 := ⟨ℤ256.sub⟩
@@ -301,7 +286,7 @@ section recursor
 
 private
 theorem shiftRec_terminate_aux : ∀ (n : UInt8), n = 0 ∨ ((n >>> 1) < n)
-| 0 => Or.inl rfl
+| .zero => Or.inl rfl
 | .raw (n+1) h => Or.inr $ by
   conv => change (n+1) / 2 % UInt8.size < n+1
   calc
