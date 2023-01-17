@@ -2,9 +2,9 @@
 Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
+import Std.Logic
 
 import Algdata.Init.UInt
-import Algdata.Logic.BishopFin
 
 set_option autoImplicit false
 
