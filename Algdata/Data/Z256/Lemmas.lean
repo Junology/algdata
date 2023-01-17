@@ -63,13 +63,29 @@ theorem add_assoc (x y z : ℤ256) : x + y + z = x + (y + z) := by
 
 @[simp]
 protected
-theorem add_sub_self_right (x y : ℤ256) : x + y - y = x := by
+theorem sub_self (x : ℤ256) : x - x = 0 := by
+  apply ℤ256.eq_of_toNat_eq
+  conv => change (x.toNat + (UInt8.size - x.toNat)) % UInt8.size = 0
+  rw [←Nat.add_sub_assoc (k:=x.toNat) (Nat.le_of_lt x.val.val.2)]
+  rw [Nat.add_sub_self_left]
+  rfl
+
+@[simp]
+protected
+theorem add_sub_assoc (x y z : ℤ256) : x + y - z = x + (y - z) := by
   apply ℤ256.eq_of_toNat_eq
   conv =>
-    lhs; change ((x.toNat + y.toNat) % UInt8.size + (UInt8.size - y.toNat)) % UInt8.size
-    simp; rw [Nat.add_assoc, ←Nat.add_sub_assoc (k:=y.toNat) (Nat.le_of_lt y.val.val.2)]
-    rw [Nat.add_sub_self_left, Nat.add_mod_right]
-    rw [Nat.mod_eq_of_lt (a:=x.toNat) x.val.val.2]
+    lhs; change ((x.toNat + y.toNat) % UInt8.size + (UInt8.size - z.toNat)) % UInt8.size
+    rw [Nat.add_mod, Nat.mod_mod, ←Nat.add_mod]
+    rw [Nat.add_assoc]
+  conv =>
+    rhs; change (x.toNat + (y.toNat + (UInt8.size - z.toNat)) % UInt8.size) % UInt8.size
+    rw [Nat.add_mod, Nat.mod_mod, ←Nat.add_mod]
+
+@[simp]
+protected
+theorem add_sub_self_right (x y : ℤ256) : x + y - y = x := by
+  rw [ℤ256.add_sub_assoc, ℤ256.sub_self, ℤ256.add_zero]
 
 @[simp]
 protected
