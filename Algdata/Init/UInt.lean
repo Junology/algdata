@@ -34,4 +34,17 @@ def pred2 : UInt8 → UInt8
 | 1 => 0
 | .raw (x+2) h => mk ⟨x, Nat.lt_of_succ_lt (Nat.lt_of_succ_lt h)⟩
 
+protected
+def binaryDigits (x : UInt8) (pre : String := "") : String :=
+  pre ++ String.mk [
+    if x &&& 0x80 = 0 then '0' else '1',
+    if x &&& 0x40 = 0 then '0' else '1',
+    if x &&& 0x20 = 0 then '0' else '1',
+    if x &&& 0x10 = 0 then '0' else '1',
+    if x &&& 0x08 = 0 then '0' else '1',
+    if x &&& 0x04 = 0 then '0' else '1',
+    if x &&& 0x02 = 0 then '0' else '1',
+    if x &&& 0x01 = 0 then '0' else '1'
+  ]
+
 end UInt8
