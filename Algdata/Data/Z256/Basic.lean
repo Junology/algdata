@@ -222,6 +222,12 @@ def msb (x : ℤ256) : ℤ256 :=
     a := a ||| (a >>> 4)
     return a.bitCount
 
+/--
+Think of a term `a : ℤ256` as a bit-array of length 8.
+-/
+instance : GetElem ℤ256 Nat ℤ256 (λ _ i => i < 8) where
+  getElem x i h := (x >>> mk (.raw i (trans h (by decide : 8 < UInt8.size)))) &&& 1
+
 
 /-!
 ## Div/Mod
