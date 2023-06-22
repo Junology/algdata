@@ -174,8 +174,8 @@ instance (r s : α → α → Prop) [Asymmetry r] [Asymmetry s] : Asymmetry (Lex
 theorem Incomp_Lexcomb_iff {r s : α → α → Prop} {a b : α}: Incomp (Lexcomb r s) a b ↔ Incomp r a b ∧ Incomp s a b where
   mp h := by
     dsimp [Incomp] at h
-    have hab := not_or_iff_and_not.mp h.left
-    have hba := not_or_iff_and_not.mp h.right
+    have hab := not_or.mp h.left
+    have hba := not_or.mp h.right
     have : Incomp r a b := ⟨hab.left, hba.left⟩
     have hsab : ¬ s a b :=
       λ h => absurd ⟨this, h⟩ hab.right
@@ -185,7 +185,7 @@ theorem Incomp_Lexcomb_iff {r s : α → α → Prop} {a b : α}: Incomp (Lexcom
   mpr h := by
     unfold Incomp
     dsimp [Lexcomb]
-    apply And.intro <;> apply not_or_iff_and_not.mpr
+    apply And.intro <;> apply not_or.mpr
     case left =>
       exact ⟨h.left.left, h.right.left ∘ And.right⟩
     case right =>

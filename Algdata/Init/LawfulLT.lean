@@ -38,7 +38,7 @@ instance instLawfulLTProd (α β : Type _) [LawfulLT α] [LawfulLT β] : LawfulL
   lt := Prod.lexLt
   irrefl := by
     intro (a,b); simp [LT.lt]
-    apply not_or_iff_and_not.mpr
+    apply not_or.mpr
     constructor
     case left => exact Irreflective.irrefl _
     case right => intro h; exact Irreflective.irrefl b h.right

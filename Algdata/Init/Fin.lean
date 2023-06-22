@@ -93,6 +93,26 @@ theorem foldAllM_zero {m : Type u → Type v} [Monad m] {α : Type u} {init : α
 theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f ⟨0, Nat.zero_lt_succ n⟩ init >>= Fin.foldAllM (f ∘ Fin.succ) := by
   dsimp [foldAllM]; rw [Fin.foldAllM.loop_succ]
 
+@[simp]
+theorem foldAll_zero {α : Type u} {f : Fin 0 → α → α} {init : α} : Fin.foldAll f init = init := rfl
+
+@[simp]
+theorem foldAll_succ {α : Type u} {n : Nat} {f : Fin n.succ → α → α} {init : α} : Fin.foldAll f init = Fin.foldAll (f ∘ Fin.succ) (f ⟨0, Nat.zero_lt_succ n⟩ init) := by
+  unfold Fin.foldAll; rw [foldAllM_succ]; rfl
+
+theorem foldAllM_comp_val {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} {f : Nat → α → m α} {init : α} : foldAllM (n:=n) (f ∘ Fin.val) init = Nat.foldM f init n := by
+  induction n generalizing f init
+  case zero => rfl
+  case succ n h_ind =>
+    rw [foldAllM_succ]; dsimp
+    have : (f ∘ Fin.val (n:=n+1)) ∘ Fin.succ = (f ∘ Nat.succ) ∘ Fin.val := by
+      apply funext; intro x; dsimp; rw [Fin.val_succ_eq_succ_val]
+    conv => lhs; rhs; rw [this]; ext x; rw [h_ind]
+    conv => rhs; rw [Nat.foldM_succ]
+
+theorem foldAll_comp_val {n : Nat} {α : Type u} {f : Nat → α → α} {init : α} : foldAll (n:=n) (f ∘ Fin.val) init = Nat.fold f n init := by
+  unfold foldAll; rw [Nat.fold_eq_foldM, foldAllM_comp_val]; rfl
+
 protected
 def elementList : (n : Nat) → List (Fin n)
 | 0 => []

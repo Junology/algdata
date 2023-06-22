@@ -408,4 +408,13 @@ theorem getElem_ofFn' {α : Type u} {n : Nat} (f : Fin n → α) (i : Nat) (h : 
 theorem getElem_ofFn'_symm {α : Type u} {n : Nat} (f : Fin n → α) (i : Fin n) : f i = (Array.ofFn f)[i.val]'((Array.size_ofFn f).symm ▸ i.isLt) :=
   Eq.symm $ getElem_ofFn' f i.val ((Array.size_ofFn f).symm ▸ i.isLt)
 
+theorem foldl_ofFn_eq {α : Type u} {β : Type v} {init : β} {g : β → α → β} {n : Nat} {f : Fin n → α} : Array.foldl g init (Array.ofFn f) = Fin.foldAll (flip g ∘ f) init := by
+  rw [Array.foldl_eq_foldl_data']
+  induction n generalizing init
+  case zero => rfl
+  case succ n h_ind =>
+    rw [ofFn_succ]; dsimp [List.foldl]; rw [h_ind, Fin.foldAll_succ]; rfl
+
+#print axioms Array.foldl_ofFn_eq
+
 end Array
