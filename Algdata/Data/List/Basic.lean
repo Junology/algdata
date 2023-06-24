@@ -32,6 +32,10 @@ theorem get_tail (a : α) (as : List α) : ∀ {i : Fin (a::as).length} (hpos : 
   apply get_congr rfl _
   simp
 
+theorem get_concat_length (l : List α) (a : α) (h : l.length < (l ++ [a]).length) : get (l ++ [a]) ⟨l.length, h⟩ = a := by
+  apply Option.some.inj
+  rw [←get?_eq_get, get?_concat_length]
+
 theorem get_set_on : ∀ (x : List α) (i : Nat) (v : α) (j : Fin (x.set i v).length), i = j.val → get (x.set i v) j = v
 | [], _, _, Fin.mk _ hk, _ => (Nat.not_lt_zero _ hk).elim
 | (a::as), 0, v, Fin.mk 0 _, _ => rfl
@@ -57,6 +61,9 @@ theorem get_set_off : ∀ (x : List α) (i : Nat) (v : α) (j : Fin (x.set i v).
   rw [get_congr this rfl, get, get]
   rw [get_set_off as i v ⟨k,_⟩ (h ∘ congrArg Nat.succ)]
 
+theorem get_take (l : List α) (n : Nat) (i : Nat) {hi₁ : i < (l.take n).length} {hi₂ : i < l.length} : get (l.take n) ⟨i,hi₁⟩ = get l ⟨i,hi₂⟩ := by
+  rw [get_congrList (l.take_append_drop n).symm, get_append_left]
+
 theorem foldl_comm {α β : Type _} {f : α → β → α} {g : α → α} : (∀ a b, f (g a) b = g (f a b)) → ∀ {init : α} {bs : List β}, bs.foldl f (g init) = g (bs.foldl f init) := by
   intro hfg init bs
   revert init; induction bs
@@ -77,6 +84,29 @@ theorem comp_filterMap {α β γ : Type _} (f : α → β) (g : β → Option γ
   rw [comp_filterMap f g as]
   rfl
 
+theorem dropLast_eq_take (as : List α) : as.dropLast = as.take (as.length - 1) :=
+  as.rec rfl fun
+  | _, [], _ => rfl
+  | a, (_ :: _), IH => congrArg (a :: ·) IH
+
+theorem singleton_getLast_eq_drop (as : List α) (h : as ≠ []) : [as.getLast h] = as.drop (as.length - 1) :=
+  h |> as.rec (λ h => nomatch h) λ a as IH _ =>
+    show [(a::as).getLast (λ h => nomatch h)] = drop (length as) (a :: as)
+    from IH |> as.casesOn (λ _ => rfl) λ _ _ IH => IH λ h => nomatch h
+
+#print singleton_getLast_eq_drop
+
+@[simp]
+theorem dropLast_concat_getLast (as : List α) (h : as ≠ []) : as.dropLast ++ [as.getLast h] = as := by
+  rw [as.dropLast_eq_take, as.singleton_getLast_eq_drop]
+  exact as.take_append_drop (as.length - 1)
+
+#print axioms dropLast_concat_getLast
+
+@[simp]
+theorem dropLast_concat_getLast' (as : List α) (h : as ≠ []) : as.dropLast.concat (as.getLast h) = as := by
+  rw [List.concat_eq_append]; exact as.dropLast_concat_getLast h
+
 theorem zipWith_nil_first {β γ : Type _} (f : α → β → γ) : ∀ (x : List β), List.zipWith f [] x = []
 | [] => rfl
 | (_::_) => rfl
@@ -84,6 +114,16 @@ theorem zipWith_nil_first {β γ : Type _} (f : α → β → γ) : ∀ (x : Lis
 theorem zipWith_nil_second {β γ : Type _} (f : α → β → γ) : ∀ (x : List α), List.zipWith f x [] = []
 | [] => rfl
 | (_::_) => rfl
+
+#print length_zipWith
+
+/-- `Classical`-free version of `List.length_zipWith` in Std library -/
+theorem length_zipWith' {β : Type v} {γ : Type w} (f : α → β → γ) (l₁ : List α) (l₂ : List β) : length (zipWith f l₁ l₂) = min l₁.length l₂.length :=
+  l₂ |> l₁.rec
+    (λ l₂ => l₂.zipWith_nil_first f ▸ l₂.length.zero_min.symm)
+    λ a l₁ IH => fun
+      | [] => (a::l₁).zipWith_nil_second f ▸ (a::l₁).length.min_zero'.symm
+      | _::l₂ => (congrArg (·+1) (IH l₂)).trans (Nat.min_succ_succ' _ _).symm
 
 theorem reverseAux_append_left {α : Type _} {as₁ as₂ bs : List α} : reverseAux (as₁ ++ as₂) bs = as₂.reverse ++ reverseAux as₁ bs := by
   revert bs; induction as₁ <;> intro bs

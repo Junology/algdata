@@ -60,6 +60,12 @@ theorem pos_mul_of_pos {m n : Nat} : m > 0 → n > 0 → m * n > 0 := by
     0 = 0 * 1 := Eq.symm $ Nat.zero_mul 1
     _ < m * n := Nat.mul_lt_mul hm hn .refl
 
+protected theorem min_zero' (n : Nat) : min n 0 = 0 := by
+  rw [Nat.min_def]
+  if h : n ≤ 0
+  then cases h; exact if_pos Nat.le.refl
+  else exact if_neg h
+
 protected
 theorem min_eq_right' {m n : Nat} (h : m ≥ n) : min m n = n := by
   rw [Nat.min_def]

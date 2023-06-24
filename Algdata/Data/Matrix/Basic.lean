@@ -11,7 +11,6 @@ import Algdata.Init.Nat
 import Algdata.Init.Fin
 import Algdata.Init.GetElem
 import Algdata.Data.Array.Lemmas
-import Algdata.Data.Array.Modify
 
 universe u v w
 
@@ -180,7 +179,7 @@ variable {α β γ : Type _} {r c : Nat}
 
 def zipWith {α : Type u} {β : Type v} {γ : Type w} (f : α → β → γ) (x : Matrix α r c) (y : Matrix β r c) : Matrix γ r c where
   entry := Array.zipWith x.entry y.entry f
-  hsize := by rw [Array.zipWith_size, x.hsize, y.hsize, Nat.min_eq]
+  hsize := by rw [Array.size_zipWith, x.hsize, y.hsize, Nat.min_eq]
 
 def add [Add α] : Matrix α r c → Matrix α r c → Matrix α r c := zipWith (·+·)
 

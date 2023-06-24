@@ -25,13 +25,78 @@ universe u v w
 variable {α : Type u}
 
 /-!
-## Equality
+## Declaration about `Array.cons`
 -/
 
-/-- The equality of `Array`. -/
-protected
-theorem eq : ∀ (x y : Array α), x.data = y.data → x=y
-| Array.mk _, Array.mk _, rfl => rfl
+/--
+An `Array` counterpart of `List.cons`.
+
+:::note warning
+In view of performance, construction based on `Array.push` is preferred.
+:::
+-/
+def cons (a : α) (as : Array α) : Array α :=
+  ⟨a :: as.data⟩
+
+
+/-!
+## `Array.push` and `Array.pop`
+-/
+
+/-- `back' as h` is the last entry of `as : Array α` with `h : as.size > 0`. In contrast to `Array.back`, this function does not require `Inhabited α` since it doesn't fail thanks to `h`. -/
+def back' (as : Array α) (h : as.size > 0) : α :=
+  have : as.size - 1 < as.size := Nat.pred_lt' h
+  as[as.size - 1]' this
+
+/-- `Array.back'` is a counterpart of `List.getLast`. -/
+theorem back'_eq_data_getLast (as : Array α) (h : as.size > 0) : as.back' h = as.data.getLast (h |> as.casesOn λ l (h : l.length > 0) (hc : l = []) => by cases hc; cases h) := by
+  rw [List.getLast_eq_get]; rfl
+
+/-- `Classical`-free version of `Array.get_push`-/
+@[simp]
+theorem get_push' (a : α) (as : Array α) (i : Nat) (h : i < (as.push a).size) : (as.push a)[i] = if h : i < as.size then as[i] else a := by
+  cases as with | mk l =>
+  simp only [getElem_eq_data_get]
+  dsimp [push, size] at h ⊢
+  rw [List.get_congrList (l.concat_eq_append a)]
+  if hil : i < l.length
+  then rw [dif_pos hil]; apply List.get_append_left
+  else
+    rw [dif_neg hil]
+    have : i = l.length := by
+      refine Nat.le_antisymm ?_ (Nat.ge_of_not_lt hil)
+      rw [l.length_concat a] at h
+      exact Nat.le_of_succ_le_succ h
+    simp only [this]
+    exact l.get_concat_length a _
+
+/-- `as.pop[i] = as[i]` for `as : Array α` as long as the index `i` is valid. -/
+@[simp]
+theorem get_pop (as : Array α) (i : Nat) {hi₁ : i < as.pop.size} {hi₂ : i < as.size} : as.pop[i] = as[i] := by
+  simp only [pop, getElem_eq_data_get, List.dropLast_eq_take]
+  exact as.data.get_take _ i
+
+/-- `Array.push`ing the last element, obtained by `Array.back'`, to the `Array.pop`ed array recovers the original array. -/
+theorem push_pop_back' (as : Array α) (h : as.size > 0) : (as.pop).push (as.back' h) = as :=
+  h |> as.casesOn λ l h => by
+    simp only [back'_eq_data_getLast, pop, push, size, getElem_eq_data_get, List.concat_eq_append]
+    apply congrArg Array.mk
+    apply l.dropLast_concat_getLast
+
+/-- Induction principle on `Array` based on `Array.push`. -/
+@[elab_as_elim]
+theorem push_induction {motive : Array α → Prop}
+  (empty : motive #[])
+  (push : ∀ (as : Array α) (a : α), motive as → motive (as.push a))
+  : ∀ (as : Array α), motive as :=
+  suffices ∀ (n : Nat) (as : Array α), as.size = n → motive as
+  from λ as => this as.size as rfl
+  Nat.rec (λ (mk []) _ => empty) λ n IH as hn => by
+    rw [← as.push_pop_back' (hn ▸ n.zero_lt_succ)]
+    apply push; apply IH
+    calc as.pop.size
+        = as.size - 1 := as.size_pop
+      _ = n+1-1 := congrArg (·-1) hn
 
 
 /-!
@@ -39,7 +104,7 @@ theorem eq : ∀ (x y : Array α), x.data = y.data → x=y
 -/
 
 @[simp]
-theorem size_nil {α : Type _} : @Array.size α #[] = 0 := rfl
+theorem size_nil : @Array.size α #[] = 0 := rfl
 
 @[simp]
 theorem size_cons (a : α) (as : List α) : Array.size {data := a::as} = (Array.size {data := as}).succ := rfl
@@ -51,148 +116,84 @@ theorem size_eq_length_of_data (x : Array α) : x.size = x.data.length := rfl
 ## `Array.foldl`
 -/
 
-/-- Induction step of `foldl` in terms of `Array.data`. -/
-theorem foldl_cons {β : Type v} (f : β → α → β) (init : β) (a : α) (as : List α) : foldl f init {data := a::as} = foldl f (f init a) {data := as} := by
-  rw [Array.foldl, Array.foldl]
-  rw [Array.foldlM, Array.foldlM]
-  rw [Id.run, Id.run]
-  simp
-  rw [foldlM.loop, dif_pos (Nat.zero_lt_succ _)]
-  simp
-  suffices t : ∀ v vs h l k w, foldlM.loop (m := Id) f {data := v::vs} vs.length.succ h l (k+1) w = foldlM.loop (m := Id) f {data := vs} vs.length (Nat.le_of_succ_le_succ h) l k w by
-    rw [t]
-    apply congrArg
-    rfl
-  intros v vs h l
-  induction l with
+theorem foldlM_eq_foldlM_data'.aux [Monad m] (f : β → α → m β) (arr : Array α) (i j) (H : arr.size = i + j) (b) :
+    foldlM.loop f arr arr.size (Nat.le_refl _) i j b = (arr.data.drop j).foldlM f b := by
+  induction i generalizing j b with
   | zero =>
-    intro k w
-    rw [foldlM.loop, foldlM.loop]
-    simp
-    apply Decidable.byCases (p := k < vs.length)
-    case h1 =>
-      intro hpos
-      rw [dif_pos hpos, dif_pos (Nat.succ_lt_succ hpos)]
-    case h2 =>
-      intro hneg
-      have : ¬(k+1 < vs.length.succ) :=
-        fun h' => hneg (Nat.lt_of_succ_lt_succ h')
-      rw [dif_neg hneg, dif_neg this]
-  | succ l' hi =>
-    intro k w
-    rw [foldlM.loop, foldlM.loop]
-    apply Decidable.byCases (p := k < vs.length)
-    case h1 =>
-      intro hpos
-      rw [dif_pos hpos, dif_pos (Nat.succ_lt_succ hpos)]
-      simp
-      rw [hi]
-      apply congrArg
-      rfl
-    case h2 =>
-      intro hneg
-      have : ¬(k+1 < vs.length.succ) :=
-        fun h' => hneg (Nat.lt_of_succ_lt_succ h')
-      rw [dif_neg hneg, dif_neg this]
-
-/-- `Classical`-free analogue of `Array.foldl_eq_foldl_data` in Std -/
-theorem foldl_eq_foldl_data' {β : Type v} (f : α → β → α) (init : α) (arr : Array β) : foldl f init arr = List.foldl f init arr.data := by
-  cases arr with | mk bs =>
-  induction bs generalizing init
-  case nil => rfl
-  case cons b bs h_ind =>
-    rw [foldl_cons, h_ind]
+    simp only [Nat.zero_eq, Nat.zero_add] at H; cases H
+    unfold foldlM.loop
+    rw [dif_neg (Nat.lt_irrefl _), List.drop_length]
     rfl
+  | succ i IH =>
+    have IH := IH (j+1) $ H.trans $ Nat.succ_add i j
+    have : j < arr.size := Nat.lt_of_add_succ_eq (Nat.add_comm .. ▸ H.symm)
+    unfold foldlM.loop
+    simp only [dif_pos this, bind_congr IH]
+    conv => rhs; rw [← List.get_drop_eq_drop arr.data j this]
+
+/-- `Classical`-free version of `Array.foldlM_eq_foldlM_data` in the standard library. -/
+ theorem foldlM_eq_foldlM_data' [Monad m] (f : β → α → m β) (init : β) (arr : Array α) : arr.foldlM f init = arr.data.foldlM f init := by
+  simp only [foldlM, Nat.le_refl, dif_pos, Nat.sub_zero]
+  exact foldlM_eq_foldlM_data'.aux f arr arr.size 0 rfl init
+
+/-- `Classical`-free version of `Array.foldl_eq_foldl_data` in the standard library. -/
+theorem foldl_eq_foldl_data' (f : β → α → β) (init : β) (arr : Array α) : arr.foldl f init = arr.data.foldl f init :=
+  arr.data.foldl_eq_foldlM f init ▸ arr.foldlM_eq_foldlM_data' (λ b a => pure (f b a)) init
+
+theorem foldlM_cons {m : Type v → Type w} [Monad m] (f : β → α → m β) (init : β) (a : α) (as : Array α) : foldlM f init (.cons a as) = (f init a >>= λ b => foldlM f b as) :=
+  match as with
+  | mk l => by simp only [foldlM_eq_foldlM_data', cons]; rfl
+
+/-- Induction step of `foldl` in terms of `Array.data`. -/
+theorem foldl_cons {β : Type v} (f : β → α → β) (init : β) (a : α) (as : Array α) : foldl f init (.cons a as) = foldl f (f init a) as := by
+  exact foldlM_cons (m:=Id) (λ b a => pure (f b a)) init a as
+
+theorem foldlM_push {m : Type v → Type w} [Monad m] [LawfulMonad m] {β : Type v} (f : β → α → m β) (init : β) (as : Array α) (a : α) : foldlM f init (as.push a) = (foldlM f init as >>= λ b => f b a) := by
+  simp only [foldlM_eq_foldlM_data', as.push_data a]
+  conv => lhs; rw [List.foldlM_append]; rhs; ext; simp only [List.foldlM, bind_pure]
+
+theorem foldl_push {β : Type v} (f : β → α → β) (init : β) (as : Array α) (a : α) : foldl f init (as.push a) = f (foldl f init as) a :=
+  foldlM_push (m:=Id) f init as a
 
 
 /-!
 ## `Array.append`
 -/
 
-theorem cons_append_data (a : α) : ∀ (as : List α) (x : Array α), ({data := a::as} ++ x).data = a::({data := as} ++ x).data
-| as, mk bs => by
-  induction bs generalizing as with
-  | nil => intros; rfl
-  | cons b bs hi =>
-    rw [←Array.append_eq_append, ←Array.append_eq_append]
-    unfold Array.append
-    rw [foldl_cons, foldl_cons]
-    exact hi (as.concat b)
+theorem append_nil (x : Array α) : x ++ #[] = x :=
+  rfl
 
-theorem append_nil : ∀ (x : Array α), x ++ #[] = x
-| Array.mk [] => rfl
-| Array.mk (_::_) => rfl
-
-theorem append_cons : ∀ (x : Array α) (b : α) (bs : List α), x ++ {data := b::bs} = (x.push b) ++ {data := bs} := by
-  intros x b bs
-  rw [←Array.append_eq_append, ←Array.append_eq_append]
-  unfold Array.append
-  rw [foldl_cons]
+theorem append_push (x y : Array α) (a : α) : x ++ (y.push a) = (x ++ y).push a :=
+  -- Recall `Array.append = Array.foldl Array.push`
+  foldl_push Array.push x y a
 
 /-- `Classical`-free analogue of `append_data` in Std4. -/
 theorem append_data' (x y : Array α) : (x ++ y).data = x.data ++ y.data := by
-  cases y with | mk bs =>
-  induction bs generalizing x
-  case nil =>
-    conv =>
-      change (x ++ #[]).data = x.data ++ []
-      rw [append_nil]
-    rw [List.append_nil]
-  case cons b bs h_ind =>
-    rw [append_cons, h_ind]
-    conv => change (x.push b).data ++ bs = x.data ++ (b::bs)
-    rw [push_data, ←List.append_cons]
+  show (Array.append x y).data = x.data ++ y.data
+  unfold Array.append; rw [foldl_eq_foldl_data']
+  rw [← y.data.foldl_hom Array.data Array.push (λ l a => l ++ [a]) x λ arr a => (arr.push_data a).symm]
+  generalize x.data = l; generalize y.data = l'
+  induction l' generalizing l with
+  | nil => exact Eq.symm $ l.append_nil
+  | cons b bs IH =>
+    unfold List.foldl; rw [IH]; exact Eq.symm $ l.append_cons b bs
 
-theorem nil_append : ∀ (x : Array α), #[] ++ x = x
-| Array.mk as => by
-  induction as with
-  | nil => rfl
-  | cons a as hi =>
-    rw [append_cons]
-    have : #[].push a = {data :=[a]} := rfl
-    rw [this]; clear this
-    apply Array.eq
-    rw [cons_append_data]
-    rw [(_ : {data :=[]} = #[])]
-    rw [hi]
-    rfl
+theorem nil_append (x : Array α) : #[] ++ x = x :=
+  x.push_induction rfl λ x a IH =>
+    calc #[] ++ (x.push a)
+        = (#[] ++ x).push a := append_push #[] x a
+      _ = x.push a := congrArg (λ x => push x a) IH
 
-theorem append_push : ∀ (x y : Array α) (a : α), x ++ (y.push a) = (x ++ y).push a := by
-  intro x y a
-  cases y with | mk bs =>
-  induction bs generalizing x
-  case nil => rfl
-  case cons b bs h_ind =>
-    dsimp [Array.push, List.concat]
-    rw [append_cons, append_cons]
-    have : Array.mk (List.concat bs a) = Array.push {data := bs} a := rfl
-    rw [this]
-    exact h_ind (x.push b)
+theorem append_assoc (x y z : Array α) : (x ++ y) ++ z = x ++ (y ++ z) :=
+  z.push_induction rfl λ z c IH => by
+    simp only [append_push]
+    exact congrArg (push · c) IH
 
-theorem append_assoc : ∀ (x y z : Array α), (x ++ y) ++ z = x ++ (y ++ z) := by
-  intro x y z
-  cases z with | mk cs =>
-  induction cs generalizing y
-  case nil => rfl
-  case cons c cs h_ind =>
-    rw [append_cons, append_cons, ←append_push]
-    exact h_ind (y.push c)
+theorem push_as_append (x : Array α) (a : α) : x.push a = x ++ #[a] :=
+  rfl
 
-theorem push_as_append (x : Array α) (a : α) : x.push a = x ++ #[a] := rfl
-
-theorem append_size : ∀ (x y : Array α), (x ++ y).size = x.size + y.size
-| mk as, y => by
-  induction as with
-  | nil =>
-    have : mk (α:=α) [] = #[] := rfl
-    rw [this, nil_append]
-    rw [size_nil, Nat.zero_add]
-  | cons a as hi =>
-    rw [Array.size, cons_append_data, List.length]
-    rw [Array.size, List.length]
-    rw [Nat.add_assoc, Nat.add_comm 1, ←Nat.add_assoc]
-    have : List.length ({data:=as} ++ y).data = ({data:=as} ++ y).size := rfl
-    rw [this, hi]
+theorem size_append (x y : Array α) : (x ++ y).size = x.size + y.size := by
+  dsimp [size]; rw [append_data' x y]; exact List.length_append x.data y.data
 
 
 /-!
@@ -211,8 +212,11 @@ theorem get_cons_succ' (a : α) (as : List α) (n : Nat) {h : n.succ < as.length
 
 theorem set_head (a : α) (as : List α) {h : 0 < as.length.succ} (v : α) : Array.set {data := a::as} ⟨0,h⟩ v = {data := v::as} := rfl
 
+#print set
+#print modifyM
+/-
 theorem set_cons_succ (a : α) (as : List α) (n : Fin as.length) (v : α) : Array.set {data := a::as} n.succ v = #[a] ++ (Array.set {data:=as} n v) := by
-  apply Array.eq
+  apply ext'
   rw [Array.set, Array.set]
   rw [Fin.val_succ_eq_succ_val]
   rw [List.set]
@@ -225,6 +229,7 @@ theorem set_cons_succ' (a : α) (as : List α) (n : Nat) (h : n.succ < as.length
   have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
   rw [this]
   rw [set_cons_succ]
+-/
 
 
 /-!
@@ -236,112 +241,122 @@ section zipWith
 variable {β : Type v} {γ : Type w}
 
 theorem zipWithAux_nil_first (f : α → β → γ) (x : Array β) (n : Nat) (z : Array γ) : Array.zipWithAux f #[] x n z = z := by
-  rw [Array.zipWithAux]
-  have : ¬ (n  < @Array.size α #[]) := n.not_lt_zero
-  rw [dif_neg this]
+  unfold Array.zipWithAux; exact dif_neg n.not_lt_zero
 
-theorem zipWith_nil_first (f : α → β → γ) (x : Array β) : Array.zipWith #[] x f = #[] := zipWithAux_nil_first f x 0 #[]
+theorem zipWith_nil_first (f : α → β → γ) (x : Array β) : Array.zipWith #[] x f = #[] :=
+  zipWithAux_nil_first f x 0 #[]
 
 theorem zipWithAux_nil_second (f : α → β → γ) (x : Array α) (n : Nat) (z : Array γ) : Array.zipWithAux f x #[] n z = z := by
-  rw [Array.zipWithAux]
-  apply Decidable.byCases (p := n < x.size)
-  case h1 =>
-    intro hpos
-    have : ¬(n < @Array.size β #[]) := n.not_lt_zero
-    rw [dif_pos hpos, dif_neg this]
-  case h2 =>
-    intro hneg
-    rw [dif_neg hneg]
+  unfold Array.zipWithAux; dsimp [size]; simp only [dif_neg n.not_lt_zero]
+  apply dite (n < x.size) <;> (intro h; simp only [h, dif_neg, dif_pos])
 
-theorem zipWith_nil_second (f : α → β → γ) (x : Array α) : Array.zipWith x #[] f = #[] := zipWithAux_nil_second f x 0 #[]
+theorem zipWith_nil_second (f : α → β → γ) (x : Array α) : Array.zipWith x #[] f = #[] :=
+  zipWithAux_nil_second f x 0 #[]
 
 theorem zipWithAux_cons_cons_succ (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) (n : Nat) (z : Array γ) : Array.zipWithAux f (Array.mk (a::as)) (Array.mk (b::bs)) (n+1) z = Array.zipWithAux f (Array.mk as) (Array.mk bs) n z := by
-  rw [Array.zipWithAux]
-  rw [Array.zipWithAux]
-  apply Decidable.byCases (p:=n+1 < Array.size {data := a::as})
-  case h1 =>
-    intro hposa
-    have hposa' : n < Array.size {data := as} := Nat.lt_of_succ_lt_succ hposa
-    rw [dif_pos hposa, dif_pos hposa']
-    apply Decidable.byCases (p:=n+1 < bs.length.succ)
-    case h1 =>
-      intro hposb
-      have hposb' : n < bs.length := Nat.lt_of_succ_lt_succ hposb
-      simp
-      rw [dif_pos hposb, dif_pos hposb']; simp
-      exact zipWithAux_cons_cons_succ f a as b bs n.succ _
-    case h2 =>
-      intro hnegb
-      have hnegb' : ¬(n < bs.length) := fun h => hnegb (Nat.succ_lt_succ h)
-      simp
-      rw[dif_neg hnegb, dif_neg hnegb']
-  case h2 =>
-    intro hnega
-    have hnega' : ¬(n < Array.size {data := as}) := fun h => hnega (Nat.succ_lt_succ h)
-    rw [dif_neg hnega, dif_neg hnega']
+  unfold zipWithAux
+  refine dite_congr (propext ⟨Nat.lt_of_succ_lt_succ,Nat.succ_lt_succ⟩) ?_ (λ _ => rfl)
+  intros
+  refine dite_congr (propext ⟨Nat.lt_of_succ_lt_succ,Nat.succ_lt_succ⟩) ?_ (λ _ => rfl)
+  intros; dsimp
+  exact zipWithAux_cons_cons_succ f a as b bs (n+1) _
 termination_by _ => as.length - n
 
 theorem zipWithAux_cons_cons_zero (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) (z : Array γ) : Array.zipWithAux f {data := a::as} {data := b::bs} 0 z = Array.zipWithAux f {data := as} {data := bs} 0 (z.push (f a b)) := by
-  rw [zipWithAux]
-  have hsza : 0 < (Array.mk (a::as)).size := Nat.zero_lt_succ _
-  have hszb : 0 < (Array.mk (b::bs)).size := Nat.zero_lt_succ _
-  rw [dif_pos hsza, dif_pos hszb]
-  simp
-  rw [zipWithAux_cons_cons_succ]
-  apply congrArg
+  conv =>
+    lhs
+    unfold zipWithAux; dsimp
+    rw [dif_pos as.length.zero_lt_succ, dif_pos bs.length.zero_lt_succ]
+    rw [zipWithAux_cons_cons_succ]
+
+theorem zipWithAux_data_eq_zipWithTR_go (f : α → β → γ) (x : Array α) (y : Array β) (z : Array γ) : (zipWithAux f x y 0 z).data = List.zipWithTR.go f x.data y.data z := by
+  cases x with | mk l =>
+  cases y with | mk l' =>
+  dsimp
+  induction l generalizing l' z with
+  | nil => exact (congrArg data (zipWithAux_nil_first f _ 0 z)).trans z.toList_eq.symm
+  | cons a l IH =>
+    cases l' with
+    | nil => exact (congrArg data (zipWithAux_nil_second f _ 0 z)).trans z.toList_eq.symm
+    | cons => rw [zipWithAux_cons_cons_zero]; exact IH _ _
+
+theorem zipWith_data_eq_zipWith_data (f : α → β → γ) (x : Array α) (y : Array β) : (zipWith x y f).data = List.zipWith f x.data y.data := by
+  show (zipWithAux f x y 0 #[]).data = List.zipWith f x.data y.data
+  rw [zipWithAux_data_eq_zipWithTR_go, List.zipWith_eq_zipWithTR]
   rfl
 
-theorem zipWithAux_buf (f : α → β → γ) : ∀ (x : Array α) (y : Array β) (n : Nat) (z : Array γ), zipWithAux f x y n z = z ++ zipWithAux f x y n #[]
-| Array.mk [], y, n => by
-  intros z
-  have : @Array.mk α [] = #[] := rfl
-  rw [this, zipWithAux_nil_first, zipWithAux_nil_first]
-  rw [Array.append_nil]
-| Array.mk _, Array.mk [], n => by
-  intros z
-  have : @Array.mk β [] = #[] := rfl
-  rw [this, zipWithAux_nil_second, zipWithAux_nil_second]
-  rw [Array.append_nil]
-| Array.mk (a::as), Array.mk (b::bs), 0 => by
-  intros z
-  rw [zipWithAux_cons_cons_zero, zipWithAux_cons_cons_zero]
-  rw [zipWithAux_buf f {data := as} {data := bs} 0 (z.push (f a b))]
-  rw [zipWithAux_buf f {data := as} {data := bs} 0 (#[].push (f a b))]
-  rw [←append_assoc, append_push, append_nil]
-| Array.mk (a::as), Array.mk (b::bs), (n+1) => by
-  intros z
-  rw [zipWithAux_cons_cons_succ, zipWithAux_cons_cons_succ]
-  exact zipWithAux_buf f {data := as} {data := bs} n z
-
-theorem zipWith_cons_cons (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) : Array.zipWith {data := a::as} {data := b::bs} f = #[f a b] ++ (Array.zipWith {data := as} {data := bs} f) := by
-  rw [zipWith, zipWith]
-  rw [zipWithAux_buf, nil_append, zipWithAux_cons_cons_zero]
-  rw [zipWithAux_buf, push_as_append, nil_append]
-
-theorem zipWith_size (f : α → β → γ) : ∀ (x : Array α) (y : Array β), (Array.zipWith x y f).size = min x.size y.size
-| Array.mk [], y => by
-  conv =>
-    lhs; change (zipWith #[] y f).size; rw [zipWith_nil_first]; change 0
-  conv =>
-    rhs; change min 0 y.size; rw [Nat.zero_min]
-| x, Array.mk [] => by
-  conv =>
-    lhs; change (zipWith x #[] f).size; rw [zipWith_nil_second]; change 0
-  conv =>
-    rhs; change min x.size 0; rw [Nat.min_zero]
-| Array.mk (a::as), Array.mk (b::bs) => by
-  rw [zipWith_cons_cons, append_size]
-  rw [size_cons, size_cons, Nat.min_succ_succ]
-  have : size #[f a b] = 1 := rfl; rw [this]
-  rw [zipWith_size f {data := as} {data := bs}]
-  rw [Nat.add_comm]
+theorem size_zipWith (f : α → β → γ) (x : Array α) (y : Array β) : (Array.zipWith x y f).size = min x.size y.size := by
+  simp only [size, zipWith_data_eq_zipWith_data]
+  exact List.length_zipWith' f x.data y.data
 
 end zipWith
+
+
+section ModifyM
+
+variable {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type u}
+
+theorem size_modifyM (x : Array α) (n : Nat) (f : α → m α) : SatisfiesM (fun y => y.size = x.size) (x.modifyM n f) := by
+  unfold modifyM
+  if h : n < x.size
+  then
+    rw [dif_pos h]; dsimp
+    exists (f x[n] >>= λ v => pure ⟨x.set ⟨n,h⟩ v, x.size_set ⟨n,h⟩ v⟩)
+    rw [map_eq_pure_bind, bind_assoc]
+    apply bind_congr; intro a
+    exact pure_bind ..
+  else rw [dif_neg h]; exact ⟨pure ⟨x,rfl⟩, map_pure Subtype.val _⟩
+
+@[simp]
+theorem size_modify : ∀ (x : Array α) (n : Nat) (f : α → α), (x.modify n f).size = x.size := by
+  intro x n f
+  cases size_modifyM (m:=Id) x n f with | intro w hw =>
+  dsimp at hw
+  conv at hw => rhs; change modify x n f
+  rw [←hw]
+  exact w.property
+
+end ModifyM
 
 
 /-!
 ## `Array.ofFn` in Std
 -/
+
+theorem ofFn_go_zero (f : Fin 0 → α) (i : Nat) (acc : Array α) : ofFn.go f i acc = acc := by
+  unfold ofFn.go; exact dif_neg i.not_lt_zero
+
+theorem ofFn_go_succ {n : Nat} (f : Fin (n+1) → α) (i : Nat) (acc : Array α) (H : i < n+1) : Array.ofFn.go f i acc = (Array.ofFn.go (λ (x : Fin n) => f ⟨x.1, Nat.lt_succ_of_lt x.2⟩) i acc).push (f ⟨n,n.lt_succ_self⟩) :=
+  Or.elim (Nat.lt_or_eq_of_le (Nat.le_of_succ_le_succ H))
+    (λ (h : i < n) => by
+      unfold ofFn.go; rw [dif_pos H, dif_pos h]
+      exact ofFn_go_succ f (i+1) _ (Nat.succ_lt_succ h)
+    )
+    (λ (h : i = n) => by
+      cases h
+      unfold ofFn.go; rw [dif_pos n.lt_succ_self]
+      unfold ofFn.go; rw [dif_neg (n+1).lt_irrefl]
+      unfold ofFn.go; rw [dif_neg n.lt_irrefl]
+    )
+termination_by _ => n-i
+
+theorem ofFn_zero (f : Fin 0 → α) : ofFn f = #[] :=
+  rfl
+
+theorem ofFn_succ {n : Nat} (f : Fin (n+1) → α) : ofFn f = (ofFn (λ x => f ⟨x.1,Nat.lt_succ_of_lt x.2⟩)).push (f ⟨n,n.lt_succ_self⟩) :=
+  ofFn_go_succ f 0 (mkEmpty (n+1)) n.zero_lt_succ
+
+/-- `Classical`-free variant of `Array.getElem_ofFn` in Std -/
+theorem getElem_ofFn' {n : Nat} (f : Fin n → α) (i : Nat) : (h : i < size (ofFn f)) → (ofFn f)[i] = f ⟨i, size_ofFn f ▸ h⟩ :=
+  f |> n.rec (λ _ h => have := size_ofFn f ▸ h; nomatch this) λ n IH f h => by
+    simp only [ofFn_succ f, get_push']
+    if h' : i < size (ofFn λ x => f ⟨x.1, Nat.lt_succ_of_lt x.2⟩)
+    then rw [dif_pos h']; exact IH _ h'
+    else
+      rw [dif_neg h']
+      suffices i = n by cases this; rfl
+      simp only [size_ofFn] at h h'
+      exact Nat.le_antisymm (Nat.le_of_succ_le_succ h) (Nat.ge_of_not_lt h')
 
 theorem ofFn_go_eq {α : Type u} {n : Nat} (f : Fin n → α) {i : Nat} {acc : Array α} : Array.ofFn.go f i acc = acc ++ Array.ofFn.go f i #[] := by
   by_cases i < n
@@ -363,7 +378,7 @@ theorem ofFn_go_eq {α : Type u} {n : Nat} (f : Fin n → α) {i : Nat} {acc : A
     rw [dif_neg hnlt, dif_neg hnlt]
     rfl
 
-theorem ofFn_go_succ {α : Type u} {n : Nat} (f : Fin n.succ → α) {i : Nat} {acc : Array α} : Array.ofFn.go f i.succ acc = Array.ofFn.go (f ∘ Fin.succ) i acc := by
+theorem ofFn_go_succ' {α : Type u} {n : Nat} (f : Fin n.succ → α) {i : Nat} {acc : Array α} : Array.ofFn.go f i.succ acc = Array.ofFn.go (f ∘ Fin.succ) i acc := by
   by_cases i < n
   case neg hnlt =>
     have : ¬ i.succ < n.succ := λ h => absurd (Nat.lt_of_succ_lt_succ h) hnlt
@@ -381,28 +396,12 @@ theorem ofFn_go_succ {α : Type u} {n : Nat} (f : Fin n.succ → α) {i : Nat} {
       rw [h_ind]
       rfl
 
-theorem ofFn_succ {α : Type u} {n : Nat} (f : Fin n.succ → α) : (Array.ofFn f).data = f ⟨0,Nat.zero_lt_succ n⟩ :: (Array.ofFn (f ∘ Fin.succ)).data := by
+theorem ofFn_succ' {α : Type u} {n : Nat} (f : Fin n.succ → α) : (Array.ofFn f).data = f ⟨0,Nat.zero_lt_succ n⟩ :: (Array.ofFn (f ∘ Fin.succ)).data := by
   conv =>
     lhs; unfold Array.ofFn; unfold Array.ofFn.go
     rw [dif_pos n.zero_lt_succ]
-    rw [Array.ofFn_go_succ, Array.ofFn_go_eq]
+    rw [Array.ofFn_go_succ', Array.ofFn_go_eq]
     rw [Array.append_data']
-
-/-- `Classical`-free variant of `Array.getElem_ofFn` in Std -/
-theorem getElem_ofFn' {α : Type u} {n : Nat} (f : Fin n → α) (i : Nat) (h : i < (Array.ofFn f).size) : (Array.ofFn f)[i] = f ⟨i, Array.size_ofFn f ▸ h⟩ := by
-  induction n generalizing i
-  case zero =>
-    exact absurd h (Nat.not_lt_zero i)
-  case succ n h_ind =>
-    rw [Array.getElem_eq_data_get]
-    rw [List.get_congrList (Array.ofFn_succ f)]
-    cases i
-    case zero => rfl
-    case succ i =>
-      rw [List.get_cons_succ]
-      rw [←Array.getElem_eq_data_get]
-      rw [h_ind]
-      rfl
 
 /-- The symmetric counterpart of `getElem_ofFn'` -/
 theorem getElem_ofFn'_symm {α : Type u} {n : Nat} (f : Fin n → α) (i : Fin n) : f i = (Array.ofFn f)[i.val]'((Array.size_ofFn f).symm ▸ i.isLt) :=
@@ -413,8 +412,6 @@ theorem foldl_ofFn_eq {α : Type u} {β : Type v} {init : β} {g : β → α →
   induction n generalizing init
   case zero => rfl
   case succ n h_ind =>
-    rw [ofFn_succ]; dsimp [List.foldl]; rw [h_ind, Fin.foldAll_succ]; rfl
-
-#print axioms Array.foldl_ofFn_eq
+    rw [ofFn_succ']; dsimp [List.foldl]; rw [h_ind, Fin.foldAll_succ]; rfl
 
 end Array
