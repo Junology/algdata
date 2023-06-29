@@ -7,6 +7,7 @@ import Std.Data.Array.Basic
 import Std.Data.Array.Lemmas
 
 import Algdata.Init.Nat
+import Algdata.Init.GetElem
 import Algdata.Data.Nat.Rec
 import Algdata.Data.List.Basic
 
@@ -37,6 +38,11 @@ In view of performance, construction based on `Array.push` is preferred.
 -/
 def cons (a : α) (as : Array α) : Array α :=
   ⟨a :: as.data⟩
+
+/-- Induction step for `Array` based on `Array.empty` (aka `#[]`) and `Array.cons`. -/
+@[elab_as_elim]
+theorem cons_induction {motive : Array α → Prop} (empty : motive #[]) (cons : ∀ (a : α) (x : Array α), motive x → motive (cons a x)) (x : Array α) : motive x :=
+  x.rec $ List.rec empty λ a as IH => cons a ⟨as⟩ IH
 
 
 /-!
@@ -155,6 +161,108 @@ theorem foldlM_push {m : Type v → Type w} [Monad m] [LawfulMonad m] {β : Type
 theorem foldl_push {β : Type v} (f : β → α → β) (init : β) (as : Array α) (a : α) : foldl f init (as.push a) = f (foldl f init as) a :=
   foldlM_push (m:=Id) f init as a
 
+/-- In spite of the definition, `Array.foldlM` can be written in terms of `Array.foldl`. -/
+theorem foldlM_eq_foldl {m : Type v → Type w} [Monad m] [LawfulMonad m] {β : Type v} (f : β → α → m β) (init : β) (x : Array α) : foldlM f init x = foldl (λ (z : m β) a => z >>= λ b => f b a) (pure init) x :=
+  x.push_induction rfl λ a x IH => by
+    rw [foldlM_push, foldl_push, IH]
+
+
+/-!
+## `Array.map`
+-/
+
+section Map
+
+variable {m : Type v → Type w} [Monad m]
+
+theorem mapM_empty (f : α → m β) : mapM f #[] = pure #[] :=
+  rfl
+
+theorem mapM_push [LawfulMonad m] (f : α → m β) (x : Array α) (a : α) : mapM f (x.push a) = (x.mapM f >>= λ y => y.push <$> (f a)) := by
+  conv => lhs; unfold mapM; rw [foldlM_push]
+  apply bind_congr; intro b
+  rw [map_eq_pure_bind]
+
+theorem map_push (f : α → β) (x : Array α) (a : α) : map f (x.push a) = (x.map f).push (f a) :=
+  mapM_push (m:=Id) f x a
+
+/-- `Classical`-free version of `Array.map_data`. -/
+theorem map_data' (f : α → β) (arr : Array α) : (arr.map f).data = List.map f arr.data :=
+  arr.push_induction rfl λ x a IH => by
+    simp only [map_push, push_data, IH, List.map_append]; rfl
+
+theorem map_cons (f : α → β) (a : α) (x : Array α) : map f (.cons a x) = .cons (f a) (map f x) :=
+  ext' $ by simp only [map_data', cons]; rfl
+
+/-- `Classical`-free version of `Array.size_mapM`. -/
+theorem size_mapM' [LawfulMonad m] (f : α → m β) (x : Array α) : SatisfiesM (λ y => y.size = x.size) (x.mapM f) :=
+  x.push_induction
+    ⟨pure ⟨#[],rfl⟩, by rw [map_pure]; rfl⟩
+    λ x a ⟨y,h⟩ =>
+      let push' : {y : Array β // y.size = x.size} → (b : β) → {y : Array β // y.size = (x.push a).size} :=
+        λ y b => ⟨y.1.push b, y.1.size_push b ▸ x.size_push a ▸ congrArg (·+1) y.2⟩
+      Exists.intro (y >>= λ y => push' y <$> f a) $ by
+        rw [mapM_push, ← h]
+        simp only [map_eq_pure_bind, bind_assoc]
+        apply bind_congr; intro y
+        simp only [pure_bind]
+
+/-- `Classical`-free version of `Array.size_map`. -/
+theorem size_map' (f : α → β) (arr : Array α) : (arr.map f).size = arr.size :=
+  calc (arr.map f).size
+      = (arr.map f).data.length := rfl
+    _ = (List.map f arr.data).length := congrArg _ (arr.map_data' f)
+    _ = arr.data.length := arr.data.length_map f
+    _ = arr.size := rfl
+
+/-- `Classical`-free version of `Array.getElem_map`. -/
+theorem getElem_map' (f : α → β) (arr : Array α) (i : Nat) (hi : i < (arr.map f).size) : (arr.map f)[i] = f (arr[i]'(arr.size_map' f ▸ hi)) := by
+  show (arr.map f).data[i] = f (arr[i]' _)
+  rw [getElem_eq (arr.map_data' f) (Eq.refl i)]
+  exact List.get_map f
+
+theorem mapIdxM_empty (f : Fin 0 → α → m β) : mapIdxM #[] f = pure #[] :=
+  rfl
+
+theorem mapIdxM.map_cons (a : α) (x : Array α) (f : Fin (x.size +1) → α → m β) (i j : Nat) (h : i + (j+1) = x.size + 1) (y : Array β) : mapIdxM.map (cons a x) f i (j+1) h y = (mapIdxM.map x (f ∘ Fin.succ) i j (Nat.succ.inj h) y) := by
+  induction i generalizing j y with
+  | zero => dsimp [map]
+  | succ i IH =>
+    unfold map; dsimp
+    apply bind_congr; intro b
+    exact IH (j+1) _ (push y b)
+
+theorem mapIdxM_cons [LawfulMonad m] (a : α) (x : Array α) (f : Fin (x.size + 1) → α → m β) : mapIdxM (cons a x) f = (f ⟨0,x.size.zero_lt_succ⟩ a >>= λ b => mapIdxM x (f ∘ Fin.succ) >>= λ y => pure (cons b y)) := by
+  unfold mapIdxM
+  conv => lhs; unfold mapIdxM.map; dsimp [cons]
+  apply bind_congr; intro b
+  show mapIdxM.map (cons a x) f x.size 1 rfl #[b] = _
+  rw [mapIdxM.map_cons]
+  generalize f ∘ Fin.succ = f'; clear f
+  suffices ∀ (i j) (h : i + j = x.size) (y : Array β), mapIdxM.map x f' i j h (cons b y) = (mapIdxM.map x f' i j h y >>= λ y => pure (cons b y))
+  from this x.size 0 rfl #[]
+  intro i j h y
+  induction i generalizing j y with
+  | zero => dsimp [mapIdxM.map]; rw [pure_bind]
+  | succ i IH =>
+    dsimp [mapIdxM.map]; simp only [bind_assoc]
+    apply bind_congr; intro b'
+    dsimp [push, cons, List.concat]
+    exact IH ..
+
+theorem mapIdx_empty (f : Fin 0 → α → β) : mapIdx #[] f = #[] :=
+  rfl
+
+theorem mapIdx_cons (a : α) (x : Array α) (f : Fin (x.size + 1) → α → β) : mapIdx (cons a x) f = cons (f ⟨0,x.size.zero_lt_succ⟩ a) (mapIdx x (f ∘ Fin.succ)) :=
+  mapIdxM_cons (m:=Id) a x f
+
+theorem size_mapIdx' (x : Array α) (f : Fin x.size → α → β) : (mapIdx x f).size = x.size :=
+  f |> x.cons_induction (λ _ => rfl) λ a x IH f => by
+    rw [mapIdx_cons]; dsimp [cons]
+    exact congrArg Nat.succ (IH (f ∘ Fin.succ))
+
+end Map
+
 
 /-!
 ## `Array.append`
@@ -211,25 +319,6 @@ theorem get_cons_succ' (a : α) (as : List α) (n : Nat) {h : n.succ < as.length
   exact get_cons_succ a as ⟨n, Nat.lt_of_succ_lt_succ h⟩
 
 theorem set_head (a : α) (as : List α) {h : 0 < as.length.succ} (v : α) : Array.set {data := a::as} ⟨0,h⟩ v = {data := v::as} := rfl
-
-#print set
-#print modifyM
-/-
-theorem set_cons_succ (a : α) (as : List α) (n : Fin as.length) (v : α) : Array.set {data := a::as} n.succ v = #[a] ++ (Array.set {data:=as} n v) := by
-  apply ext'
-  rw [Array.set, Array.set]
-  rw [Fin.val_succ_eq_succ_val]
-  rw [List.set]
-  have : #[a] = {data:=a::[]} := rfl
-  rw [this, cons_append_data]
-  have : #[] = {data:=([] : List α)} := rfl
-  rw [←this, nil_append]
-
-theorem set_cons_succ' (a : α) (as : List α) (n : Nat) (h : n.succ < as.length.succ) (v : α) : Array.set {data:=a::as} ⟨n+1,h⟩ v = #[a] ++ Array.set {data:=as} ⟨n,Nat.lt_of_succ_lt_succ h⟩ v := by
-  have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
-  rw [this]
-  rw [set_cons_succ]
--/
 
 
 /-!
