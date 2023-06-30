@@ -303,13 +303,6 @@ theorem pow_lt_pow_left {m n i : Nat} : m < n → i > 0 → m^i < n^i := by
     _        ≤ n^i * m := Nat.mul_le_mul_right m (Nat.pow_le_pow_of_le_left (Nat.le_of_lt hmn) i)
     _        < n^i * n := Nat.mul_lt_mul_of_pos_left hmn (Nat.pos_pow_of_pos i (trans m.zero_le hmn))
 
-theorem pow_add (n i j : Nat) : n^(i+j) = n^i * n^j := by 
-induction j
-case zero => dsimp; rw [Nat.mul_one]
-case succ j h_ind =>
-  simp [Nat.add_succ, Nat.pow_succ]
-  rw [h_ind, Nat.mul_assoc]
-
 
 /-!
 ## Ordering

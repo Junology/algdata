@@ -319,14 +319,14 @@ theorem complement_inj (a b : α) : ~~~a = ~~~b → a = b := by
 protected
 theorem shiftRight_zero (a : α) : a >>> 0 = a := by
   apply UInt.toNat_inj
-  simp only [UInt.toNat_shiftRight, UInt.toNat_ofNat, Nat.zero_mod]
+  simp only [UInt.toNat_shiftRight, UInt.toNat_ofNat 0, Nat.zero_mod]
   rfl
 
 /-- `ShiftLeft.shiftLeft` is left unital; i.e. zero shift. -/
 protected
 theorem shiftLeft_zero (a : α) : a <<< 0 = a := by
   apply UInt.toNat_inj
-  simp only [UInt.toNat_shiftLeft, UInt.toNat_ofNat]
+  simp only [UInt.toNat_shiftLeft, UInt.toNat_ofNat 0]
   simp only [Nat.zero_mod, Nat.shiftLeft_zero, Nat.mod_eq_of_lt (UInt.toNat_lt a)]
 
 /-- `ShiftRight.shiftRight` is (conditionally) additive wrt the second variable. -/
@@ -559,16 +559,17 @@ theorem getBit_bitmask (n : α) (i : Nat) : toNat n < length α → UInt.getBit 
     conv =>
       lhs; simp only [UInt.getBit_xor, bitmask.aux]; rw [h_ind (Nat.le_of_succ_le hk)]
       unfold UInt.getBit
-      simp [toNat_shiftLeft, toNat_land, toNat_shiftRight, toNat_ofNat]
+      simp only [toNat_shiftLeft, toNat_land, toNat_shiftRight, toNat_ofNat k, toNat_ofNat 1]
       rw [Nat.mod_eq_of_lt hn, Nat.mod_eq_of_lt ‹k < 2^length α›, Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt ‹1<2^length α›]
       tactic =>
-        have : (k >>> toNat n &&& 1) * 2^k < 2^length α := calc
-          (k >>> toNat n &&& 1) * 2^k
-            ≤ 1*2^k := Nat.mul_le_mul_right _ $ by rw [Nat.land_one]; exact Nat.le_of_lt_succ (Nat.mod_lt _ (Nat.zero_lt_succ 1))
-          _ = 2^k := Nat.one_mul _
-          _ < 2^length α := Nat.pow_lt_pow_right Nat.le.refl hk
+        have : (k >>> toNat n &&& 1) <<< k < 2^length α :=
+          calc (k >>> toNat n &&& 1) <<< k
+            _ = (k >>> toNat n &&& 1) * 2^k := Nat.shiftLeft_eq _ k
+            _ ≤ 1*2^k := Nat.mul_le_mul_right _ $ by rw [Nat.land_one]; exact Nat.le_of_lt_succ (Nat.mod_lt _ (Nat.zero_lt_succ 1))
+            _ = 2^k := Nat.one_mul _
+            _ < 2^length α := Nat.pow_lt_pow_right Nat.le.refl hk
       rw [Nat.mod_eq_of_lt this]
-      rhs; rw [←Nat.shiftLeft_eq, Nat.shiftLeft_getBit, Nat.land_getBit, Nat.shiftRight_getBit]
+      rhs; rw [Nat.shiftLeft_getBit, Nat.land_getBit, Nat.shiftRight_getBit]
       change decide (i ≥ k) && (k.getBit (i-k+toNat n) && Nat.getBit (2^0) (i-k))
       rw [Nat.getBit_two_pow, ←and_decideEq (λ x => Nat.getBit k (x + toNat n))]
       tactic =>
@@ -635,7 +636,7 @@ theorem bitcnt_eq (x : α) : bitcnt x = Nat.fold (λ i (x : α) => (x &&& ~~~ bi
       dsimp
       apply congrArg (Prod.mk _)
       rw [UInt.shiftLeft_shiftLeft 1 (OfNat.ofNat (i+1)) 1, UInt.ofNat_add]
-      . simp only [UInt.toNat_ofNat]
+      . simp only [UInt.toNat_ofNat, UInt.toNat_ofNat 1]
         have : length α > 0 :=
           hn |> (length α).rec (λ (hn : 0 = n) => nomatch (trans h hn.symm)) (λ l _ _ => l.zero_lt_succ)
         have : n < length α := hn ▸ Nat.log2RU_lt_self _ ‹length α > 0›
@@ -813,7 +814,7 @@ theorem ctz_eq_ctz' [DecidableEq α] : ∀ (a : α), UInt.ctz a = UInt.ctz' a :=
     suffices y <<< OfNat.ofNat n <<< 1 = y <<< OfNat.ofNat (n+1)
       from congrArg _ this
     have : toNat (OfNat.ofNat (α:=α) n) + toNat (α:=α) 1 = n+1 := by
-      simp only [UInt.toNat_ofNat]
+      simp only [UInt.toNat_ofNat, UInt.toNat_ofNat 1]
       have : n % 2^length α = n := Nat.mod_eq_of_lt $ calc
         n < length α := ‹_›
         _ < 2^length α := Nat.exp_lt_pow _ .refl

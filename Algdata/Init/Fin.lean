@@ -13,9 +13,12 @@ namespace Fin
 
 theorem val_succ_eq_succ_val {n : Nat} (x : Fin n) : x.succ.val = x.val.succ := rfl
 
+#print Fin.pred
+/-
 def pred {n : Nat} (x : Fin n) (h : x.val > 0) : Fin n.pred where
   val := x.val.pred
   isLt := Nat.pred_lt_pred (Nat.not_eq_zero_of_lt h) x.isLt
+--/
 
 @[simp]
 theorem subst_eq : ∀ {n k : Nat} {h : n = k} (x : Fin n), h ▸ x = ⟨x.val, h ▸ x.isLt⟩

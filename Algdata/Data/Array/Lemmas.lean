@@ -178,10 +178,33 @@ variable {m : Type v → Type w} [Monad m]
 theorem mapM_empty (f : α → m β) : mapM f #[] = pure #[] :=
   rfl
 
-theorem mapM_push [LawfulMonad m] (f : α → m β) (x : Array α) (a : α) : mapM f (x.push a) = (x.mapM f >>= λ y => y.push <$> (f a)) := by
-  conv => lhs; unfold mapM; rw [foldlM_push]
+theorem mapM.map_cons_succ [LawfulMonad m] (f : α → m β) (a : α) (x : Array α) (i : Nat) (b : β) (y : Array β) : Array.mapM.map f (cons a x) (i+1) (cons b y) = (Array.mapM.map f x i y >>= λ y => pure (cons b y)) := by
+  unfold map; dsimp [cons]
+  if h : i < x.size then
+    rw [dif_pos (Nat.succ_lt_succ h), dif_pos h, bind_assoc]
+    apply bind_congr; intro b'
+    exact mapM.map_cons_succ f a x (i+1) b (push y b')
+  else
+    rw [dif_neg h, dif_neg (h ∘ Nat.lt_of_succ_lt_succ)]
+    rw [pure_bind]
+termination_by _ => x.size-i
+
+theorem mapM_cons [LawfulMonad m] (f : α → m β) (a : α) (x : Array α) : mapM f (cons a x) = (f a >>= λ b => mapM f x >>= λ y => pure (cons b y)) := by
+  unfold mapM
+  conv =>
+    lhs; unfold mapM.map; dsimp [cons]
+    rw [dif_pos x.size.zero_lt_succ]
   apply bind_congr; intro b
-  rw [map_eq_pure_bind]
+  exact mapM.map_cons_succ f a x 0 b #[]
+
+theorem mapM_push [LawfulMonad m] (f : α → m β) (x : Array α) (a : α) : mapM f (x.push a) = (x.mapM f >>= λ y => f a >>= λ b => pure (y.push b)) :=
+  x.cons_induction
+    (Eq.trans (mapM_cons f a #[]) $ by simp only [mapM_empty, pure_bind]; rfl)
+    λ a x IH => by
+      show mapM f (cons a (push x _)) = _
+      simp only [mapM_cons f, bind_assoc]
+      apply bind_congr; intro b
+      rw [IH]; simp only [bind_assoc, pure_bind]; rfl
 
 theorem map_push (f : α → β) (x : Array α) (a : α) : map f (x.push a) = (x.map f).push (f a) :=
   mapM_push (m:=Id) f x a

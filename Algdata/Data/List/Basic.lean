@@ -25,10 +25,10 @@ theorem get_proof_irrev (x : List α) (i : Fin x.length) (h : i.val < x.length) 
 theorem get_head (a : α) (as : List α) : ∀ {i : Fin (a::as).length}, i.val = 0 → (a::as).get i = a
 | Fin.mk i hi, h => by cases h; rfl
 
-theorem get_tail (a : α) (as : List α) : ∀ {i : Fin (a::as).length} (hpos : i.val > 0), (a::as).get i = as.get (i.pred hpos)
+theorem get_tail (a : α) (as : List α) : ∀ {i : Fin (a::as).length} (hpos : i.val > 0), (a::as).get i = as.get (i.pred (Nat.ne_of_gt hpos))
 | Fin.mk 0 _, hpos => (Nat.not_lt_zero _ hpos).elim
 | Fin.mk (k+1) hk, hpos => by
-  rw [get, Fin.pred]
+  rw [get, Fin.pred, Fin.subNat]
   apply get_congr rfl _
   simp
 
@@ -94,7 +94,7 @@ theorem singleton_getLast_eq_drop (as : List α) (h : as ≠ []) : [as.getLast h
     show [(a::as).getLast (λ h => nomatch h)] = drop (length as) (a :: as)
     from IH |> as.casesOn (λ _ => rfl) λ _ _ IH => IH λ h => nomatch h
 
-#print singleton_getLast_eq_drop
+#print axioms singleton_getLast_eq_drop
 
 @[simp]
 theorem dropLast_concat_getLast (as : List α) (h : as ≠ []) : as.dropLast ++ [as.getLast h] = as := by

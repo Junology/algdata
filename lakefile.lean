@@ -1,7 +1,7 @@
 import Lake
 open Lake DSL
 
-package algdata {
+package «algdata» {
   -- add any package configuration options here
 }
 
@@ -13,7 +13,7 @@ lean_lib Algdata {
 meta if get_config? doc = some "on" then
 require «dog-gen4» from git "https://github.com/leanprover/doc-gen4" @ "main"
 
-require std from git "https://github.com/leanprover/std4" @ "bf3acbb"
+require std from git "https://github.com/leanprover/std4" @ "main"
 
 require dijkstra from git "git@github.com:Junology/dijkstra.git" @ "master"
 /-

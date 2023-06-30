@@ -163,7 +163,7 @@ theorem bitwise_div_two (f : Bool → Bool → Bool) (m n : Nat) : bitwise f m n
       conv => lhs; unfold bitwise; simp [if_neg hm, if_neg hn]
       simp [app_ite (·/2), ←Nat.mul_two]
       rw [Nat.add_comm, Nat.add_mul_div_right 1 _ (z:=2) (Nat.zero_lt_succ 1)]
-      have : 1/2 = 0 := rfl
+      have : 1/2 = 0 := by decide
       rw [this, Nat.zero_add]
       simp
 
@@ -693,7 +693,7 @@ theorem succ_eq_xor_add_land_shiftLeft (n : Nat) : n.succ = (n ^^^ 1) + ((n &&& 
     simp [Nat.odd_xor_one h, h]
     cases n
     case zero => cases h
-    case succ n => simp; rfl
+    case succ n => rfl
 
 theorem add_getBit_zero (m n : Nat) : (m+n).getBit 0 = (m ^^^ n).getBit 0 := by
   conv =>

@@ -180,8 +180,8 @@ theorem hingeable_skip_right [Trans r r r] {xs : KVChain (flip r) β} {a : α} {
 @[simp]
 theorem toList_hinge_eq_reverseAux {xs : KVChain (flip r) β} {ys : KVChain r β} {hxy : xs.hingeable ys} : (hinge xs ys hxy).toList = List.reverseAux xs.toList ys.toList := rfl
 
-instance instCoeKVChainList : Coe (KVChain r β) (List (Sigma β)) :=
-  Coe.mk KVChain.toList
+instance instCoeKVChainList : CoeOut (KVChain r β) (List (Sigma β)) where
+  coe := KVChain.toList
 
 instance instReprKVChain [Repr α] [(a : α) → Repr (β a)] : Repr (KVChain r β) where
   reprPrec xs prec := reprPrec xs.toList prec
