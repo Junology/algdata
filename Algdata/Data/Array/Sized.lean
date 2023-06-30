@@ -556,6 +556,11 @@ theorem zipWith_push (x : SizedArray α n) (a : α) (y : SizedArray β n) (b : �
   show (push x a)[i]'(.step h) = x[i]'h
   rw [get_push, dif_pos h]
 
+theorem zipWith_flip (x : SizedArray α n) (y : SizedArray β n) (f : α → β → γ) : zipWith y x (flip f) = zipWith x y f :=
+  cons_induction_on₂ x y (zipWith_empty f) λ a x b y IH => by
+    simp only [zipWith_cons]
+    exact congrArg (cons (f a b)) IH
+
 def zipWith₃ (x : SizedArray α n) (y : SizedArray β n) (z : SizedArray γ n) (f : α → β → γ → δ) : SizedArray δ n :=
   mapIdx (λ (i : Fin n) => f x[i.val] y[i.val]) z
 
