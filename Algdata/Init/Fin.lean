@@ -7,6 +7,10 @@ import Std.Data.Fin.Lemmas
 
 import Algdata.Init.Nat
 
+-- Disable auto-binding of unbounded variables
+set_option autoImplicit false
+
+
 universe u v w
 
 namespace Fin
@@ -85,17 +89,19 @@ theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : 
     rw [h_ind]
     rfl
 
-theorem foldAllM_zero {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin 0 → α → m α} : Fin.foldAllM f init = pure (f:=m) init := rfl
+theorem foldAllM_zero {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin 0 → α → m α} : Fin.foldAllM f init = pure (f:=m) init :=
+  rfl
 
-theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f ⟨0, Nat.zero_lt_succ n⟩ init >>= Fin.foldAllM (f ∘ Fin.succ) := by
-  dsimp [foldAllM]; rw [Fin.foldAllM.loop_succ]; rfl
-
-@[simp]
-theorem foldAll_zero {α : Type u} {f : Fin 0 → α → α} {init : α} : Fin.foldAll f init = init := rfl
+theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f 0 init >>= Fin.foldAllM (f ∘ Fin.succ) := by
+  unfold foldAllM; exact Fin.foldAllM.loop_succ
 
 @[simp]
-theorem foldAll_succ {α : Type u} {n : Nat} {f : Fin n.succ → α → α} {init : α} : Fin.foldAll f init = Fin.foldAll (f ∘ Fin.succ) (f ⟨0, Nat.zero_lt_succ n⟩ init) := by
-  unfold Fin.foldAll; rw [foldAllM_succ]; rfl
+theorem foldAll_zero {α : Type u} {f : Fin 0 → α → α} {init : α} : Fin.foldAll f init = init :=
+  rfl
+
+@[simp]
+theorem foldAll_succ {α : Type u} {n : Nat} {f : Fin n.succ → α → α} {init : α} : Fin.foldAll f init = Fin.foldAll (f ∘ Fin.succ) (f 0 init) := by
+  unfold Fin.foldAll; exact foldAllM_succ
 
 theorem foldAllM_comp_val {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} {f : Nat → α → m α} {init : α} : foldAllM (n:=n) (f ∘ Fin.val) init = Nat.foldM f init n := by
   induction n generalizing f init
