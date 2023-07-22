@@ -22,15 +22,12 @@ theorem get_congrList {x y : List α} {i : Fin x.length} : (h : x = y) → get x
 theorem get_proof_irrev (x : List α) (i : Fin x.length) (h : i.val < x.length) : x.get i = x.get ⟨i.val, h⟩ :=
   get_congr rfl rfl
 
-theorem get_head (a : α) (as : List α) : ∀ {i : Fin (a::as).length}, i.val = 0 → (a::as).get i = a
-| Fin.mk i hi, h => by cases h; rfl
+theorem get_head (a : α) (as : List α) : ∀ {i : Fin (as.length + 1)}, i = 0 → (a::as).get i = a
+| _, rfl => rfl
 
-theorem get_tail (a : α) (as : List α) : ∀ {i : Fin (a::as).length} (hpos : i.val > 0), (a::as).get i = as.get (i.pred (Nat.ne_of_gt hpos))
-| Fin.mk 0 _, hpos => (Nat.not_lt_zero _ hpos).elim
-| Fin.mk (k+1) hk, hpos => by
-  rw [get, Fin.pred, Fin.subNat]
-  apply get_congr rfl _
-  simp
+theorem get_tail (a : α) (as : List α) : ∀ {i : Fin (as.length + 1)} (hi : i ≠ 0), (a::as).get i = as.get (i.pred hi)
+| Fin.mk 0 _, hpos => nomatch hpos
+| Fin.mk (_+1) _, _ => rfl
 
 theorem get_concat_length (l : List α) (a : α) (h : l.length < (l ++ [a]).length) : get (l ++ [a]) ⟨l.length, h⟩ = a := by
   apply Option.some.inj
@@ -114,8 +111,6 @@ theorem zipWith_nil_first {β γ : Type _} (f : α → β → γ) : ∀ (x : Lis
 theorem zipWith_nil_second {β γ : Type _} (f : α → β → γ) : ∀ (x : List α), List.zipWith f x [] = []
 | [] => rfl
 | (_::_) => rfl
-
-#print length_zipWith
 
 /-- `Classical`-free version of `List.length_zipWith` in Std library -/
 theorem length_zipWith' {β : Type v} {γ : Type w} (f : α → β → γ) (l₁ : List α) (l₂ : List β) : length (zipWith f l₁ l₂) = min l₁.length l₂.length :=

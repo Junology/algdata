@@ -13,13 +13,6 @@ namespace Fin
 
 theorem val_succ_eq_succ_val {n : Nat} (x : Fin n) : x.succ.val = x.val.succ := rfl
 
-#print Fin.pred
-/-
-def pred {n : Nat} (x : Fin n) (h : x.val > 0) : Fin n.pred where
-  val := x.val.pred
-  isLt := Nat.pred_lt_pred (Nat.not_eq_zero_of_lt h) x.isLt
---/
-
 @[simp]
 theorem subst_eq : ∀ {n k : Nat} {h : n = k} (x : Fin n), h ▸ x = ⟨x.val, h ▸ x.isLt⟩
 | _, _, rfl, mk _ _ => rfl
@@ -93,8 +86,9 @@ theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : 
     rfl
 
 theorem foldAllM_zero {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin 0 → α → m α} : Fin.foldAllM f init = pure (f:=m) init := rfl
+
 theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f ⟨0, Nat.zero_lt_succ n⟩ init >>= Fin.foldAllM (f ∘ Fin.succ) := by
-  dsimp [foldAllM]; rw [Fin.foldAllM.loop_succ]
+  dsimp [foldAllM]; rw [Fin.foldAllM.loop_succ]; rfl
 
 @[simp]
 theorem foldAll_zero {α : Type u} {f : Fin 0 → α → α} {init : α} : Fin.foldAll f init = init := rfl
