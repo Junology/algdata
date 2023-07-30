@@ -132,7 +132,7 @@ theorem foldlM_eq_foldlM_data'.aux [Monad m] (f : β → α → m β) (arr : Arr
     rfl
   | succ i IH =>
     have IH := IH (j+1) $ H.trans $ Nat.succ_add i j
-    have : j < arr.size := Nat.lt_of_add_succ_eq (Nat.add_comm .. ▸ H.symm)
+    have : j < arr.size := (Nat.add_comm i.succ j ▸ H.symm) ▸ j.lt_add_succ i
     unfold foldlM.loop
     simp only [dif_pos this, bind_congr IH]
     conv => rhs; rw [← List.get_drop_eq_drop arr.data j this]

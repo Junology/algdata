@@ -33,8 +33,23 @@ theorem lexfold_lt_mul {m n : Nat} (x : Fin m) (y : Fin n) : x.val * n + y.val <
     _ ≤ m * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt x.isLt)
 
 theorem lexfold_inj {m n : Nat} {x₁ x₂: Fin m} {y₁ y₂ : Fin n} (h : x₁.val * n + y₁.val = x₂.val * n + y₂.val) : x₁=x₂ ∧ y₁=y₂ := by
-  have : x₁.val = x₂.val ∧ y₁.val = y₂.val := Nat.div_mod_unique n y₁.isLt y₂.isLt h
-  exact ⟨Fin.eq_of_val_eq this.left, Fin.eq_of_val_eq this.right⟩
+  have : y₁ = y₂ := Fin.ext $
+    calc y₁.val
+      _ = y₁.val % n := (Nat.mod_eq_of_lt y₁.isLt).symm
+      _ = (y₁.val + x₁.val * n) % n := (Nat.add_mul_mod_self_right y₁.val x₁.val n).symm
+      _ = (x₁.val * n + y₁.val) % n := congrArg (· % n) (Nat.add_comm _ _)
+      _ = (x₂.val * n + y₂.val) % n := congrArg (· % n) h
+      _ = (y₂.val + x₂.val * n) % n := congrArg (· % n) (Nat.add_comm _ _)
+      _ = y₂.val % n := Nat.add_mul_mod_self_right y₂.val x₂.val n
+      _ = y₂.val := Nat.mod_eq_of_lt y₂.isLt
+  cases this
+  have : 0 < n := trans y₁.val.zero_le y₁.isLt
+  have : x₁ = x₂ := Fin.ext $
+    calc x₁.val
+      _ = x₁.val * n / n := (x₁.val.mul_div_cancel this).symm
+      _ = x₂.val * n / n := congrArg (· / n) (Nat.add_right_cancel h)
+      _ = x₂.val := x₂.val.mul_div_cancel this
+  exact ⟨this, rfl⟩
 
 -- Folding a product of two finite sets into a finite set in the lexicographical order
 @[always_inline]
@@ -62,7 +77,7 @@ def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (f : Fin 
   let rec @[specialize] loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
   | 0, _ => pure x
   | k+1, h => do
-    loop i.succ (← f ⟨i,Nat.lt_of_add_succ_eq h⟩ x) k (by rw [←h, Nat.add_succ, Nat.succ_add])
+    loop i.succ (← f ⟨i, h ▸ i.lt_add_succ k⟩ x) k (by rw [←h, Nat.add_succ, Nat.succ_add])
   loop 0 init n (Nat.zero_add n)
 
 @[inline]
@@ -74,17 +89,17 @@ def forAllM {m : Type u → Type v} [Monad m] {n : Nat} (f : Fin n → m PUnit) 
   let rec @[specialize] loop (i : Nat) : (k : Nat) → (i+k = n) → m PUnit
   | 0, _ => pure PUnit.unit
   | k+1, h => do
-    f ⟨i,Nat.lt_of_add_succ_eq h⟩
+    f ⟨i, h ▸ i.lt_add_succ k⟩
     loop i.succ k (by rw [←h, Nat.add_succ, Nat.succ_add])
   loop 0 n (Nat.zero_add n)
 
-theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {f : Fin (n+1) → α → m α} {i : Nat} {a : α} {k : Nat} {h : i+(k+1)=n+1} : Fin.foldAllM.loop f i a (k+1) h = f ⟨i, Nat.lt_of_add_succ_eq h⟩ a >>= λ b => Fin.foldAllM.loop (f ∘ Fin.succ) i b k (Nat.succ.inj h) := by
+theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {f : Fin (n+1) → α → m α} {i : Nat} {a : α} {k : Nat} {h : i+(k+1)=n+1} : Fin.foldAllM.loop f i a (k+1) h = f ⟨i, h ▸ i.lt_add_succ k⟩ a >>= λ b => Fin.foldAllM.loop (f ∘ Fin.succ) i b k (Nat.succ.inj h) := by
   induction k generalizing n f i a
   case zero => rfl
   case succ k h_ind =>
     conv =>
       lhs
-      change do loop f i.succ (← f ⟨i,Nat.lt_of_add_succ_eq h⟩ a) k.succ (by rw [←h]; rw [Nat.add_succ, Nat.succ_add, Nat.add_succ]; rfl)
+      change do loop f i.succ (← f ⟨i, h ▸ i.lt_add_succ _⟩ a) k.succ (by rw [←h, Nat.add_succ, Nat.succ_add, Nat.add_succ]; rfl)
     apply bind_congr; intro b
     rw [h_ind]
     rfl

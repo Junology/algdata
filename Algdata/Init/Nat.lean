@@ -95,14 +95,8 @@ theorem lt_add_succ (n k : Nat) : n < n + k.succ := calc
   _ < (n+k).succ := Nat.lt_succ_self _
   _ = n + k.succ := Nat.add_succ n k
 
-theorem lt_of_add_succ_eq {m k n : Nat} : m + k.succ = n → m < n := fun h =>
-  calc
-    m < m + k.succ := lt_add_succ m k
-    _ = n := h
-
-theorem not_lt_of_ge {m n : Nat} : m ≥ n → ¬(m < n) := by
-  intro h hn
-  exact Nat.not_le_of_gt hn h
+theorem not_lt_of_ge {m n : Nat} : m ≥ n → ¬(m < n) :=
+  flip Nat.not_le_of_gt
 
 theorem one_le_succ (n : Nat) : 1 ≤ n.succ :=
   n.casesOn (motive:=λ n => 1 ≤ n.succ) le.refl (λ n => Nat.succ_le_succ (zero_le n.succ))
@@ -187,48 +181,6 @@ theorem mod_mul_mod_left (a m n : Nat) : a % (m*n) % m = a % m := by
 
 theorem mod_mul_mod_right (a m n : Nat) : a % (m*n) % n = a % n := by
   rw [Nat.mul_comm, mod_mul_mod_left]
-
-theorem div_mod_unique (n : Nat) : ∀ {q₁ q₂ r₁ r₂ : Nat}, r₁ < n → r₂ < n → q₁*n + r₁ = q₂*n + r₂ → q₁=q₂ ∧ r₁=r₂ := by
-  intros q₁ q₂ r₁ r₂ hr₁ hr₂ heq
-  suffices q₁ = q₂ by
-    constructor; assumption
-    rw [this] at heq
-    exact Nat.add_left_cancel heq
-  revert q₂
-  induction q₁
-  case zero =>
-    intro q₂ heq
-    simp at *
-    rw [heq] at hr₁
-    cases q₂
-    case zero => rfl
-    case succ k =>
-      rw [succ_mul, Nat.add_comm _ n, Nat.add_assoc] at hr₁
-      conv at hr₁ =>
-        rhs
-        rw [←Nat.add_zero n]
-      have : k*n+r₂ < 0 := Nat.lt_of_add_lt_add_left (k:=n) hr₁
-      exact False.elim $ not_lt_zero _ this
-  case succ q₁ h_ind =>
-    intro q₂ heq
-    rw [succ_mul, Nat.add_comm _ n, Nat.add_assoc] at heq
-    cases q₂
-    case zero =>
-      simp at heq
-      rw [←heq] at hr₂
-      conv at hr₂ =>
-        rhs
-        rw [←Nat.add_zero n]
-      have : q₁*n + r₁ < 0 :=
-        Nat.lt_of_add_lt_add_left (k:=n) hr₂
-      exact False.elim $ not_lt_zero _ this
-    case succ q₂=>
-      conv at heq =>
-        rhs
-        rw [succ_mul, Nat.add_comm _ n, Nat.add_assoc]
-      apply congrArg succ
-      apply h_ind
-      exact Nat.add_left_cancel heq
 
 theorem mod_mul_div_left (l m n : Nat) : (l % (m*n) / m) = (l/m) % n := by
   cases m.eq_zero_or_pos
