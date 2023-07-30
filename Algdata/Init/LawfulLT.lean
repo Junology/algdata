@@ -16,7 +16,7 @@ class LawfulLE (α : Type _) extends LE α where
   refl : ∀ a, le a a
   trans : ∀ {a b c}, le a b → le b c → le a c
 
-instance (α : Type _) [LawfulLE α] : Trans (α:=α) (β:=α) (γ:=α) (·≤·) (·≤·) (·≤·) where
+instance LawfulLE.instTrans (α : Type _) [LawfulLE α] : Trans (α:=α) (β:=α) (γ:=α) (·≤·) (·≤·) (·≤·) where
   trans := LawfulLE.trans
 
 instance instLawfulLENat : LawfulLE Nat where
