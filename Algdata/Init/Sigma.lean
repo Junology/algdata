@@ -96,9 +96,9 @@ instance instAsymmetrylex [Asymmetry r] [(a : α) → Asymmetry (s a)] : Asymmet
 instance instTrichotomouslex [Trichotomous r] [(a : α) → Trichotomous (s a)] : Trichotomous (Sigma.lex r s) where
   trichot
   | mk a₁ b₁, mk a₂ b₂ =>
-    trichotCasesOn r (motive:=λ a₁ a₂=> ∀ (b₁ : β a₁) (b₂ : β a₂), Sigma.mk a₁ b₁ = Sigma.mk a₂ b₂ ∨ Sigma.lex r s ⟨a₁,b₁⟩ ⟨a₂,b₂⟩ ∨ Sigma.lex r s ⟨a₂,b₂⟩ ⟨a₁,b₁⟩) a₁ a₂
+    trichot_cases_on r (motive:=λ a₁ a₂=> ∀ (b₁ : β a₁) (b₂ : β a₂), Sigma.mk a₁ b₁ = Sigma.mk a₂ b₂ ∨ Sigma.lex r s ⟨a₁,b₁⟩ ⟨a₂,b₂⟩ ∨ Sigma.lex r s ⟨a₂,b₂⟩ ⟨a₁,b₁⟩) a₁ a₂
       (λ a b₁ b₂ =>
-        trichotCasesOn (s a) b₁ b₂
+        trichot_cases_on (s a) b₁ b₂
           (λ _ => Or.inl rfl)
           (λ _ _ h => Or.inr $ Or.inl $ lex.snd h)
           (λ _ _ h => Or.inr $ Or.inr $ lex.snd h)
@@ -157,7 +157,7 @@ instance instLinearLTSigma [LinearLT α] [(a : α) → LinearLT (β a)] : Linear
   trichot x y := by
     cases x with | mk xa xb =>
     cases y with | mk ya yb =>
-    apply trichotCasesOn (motive:=λ xa ya => ∀ (xb : β xa) (yb : β ya), Sigma.mk xa xb = ⟨ya,yb⟩ ∨ Sigma.mk xa xb < Sigma.mk ya yb ∨ Sigma.mk xa xb > ⟨ya,yb⟩) LT.lt xa ya _ _ _ xb yb
+    apply trichot_cases_on (motive:=λ xa ya => ∀ (xb : β xa) (yb : β ya), Sigma.mk xa xb = ⟨ya,yb⟩ ∨ Sigma.mk xa xb < Sigma.mk ya yb ∨ Sigma.mk xa xb > ⟨ya,yb⟩) LT.lt xa ya _ _ _ xb yb
     . intro a xb yb
       apply Or.imp Sigma.eq_of_eq_snd (Or.imp Sigma.lt.snd Sigma.lt.snd)
       exact Trichotomous.trichot (α:=β a) (r:=LT.lt) xb yb

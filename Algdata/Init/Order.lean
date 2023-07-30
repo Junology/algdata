@@ -53,10 +53,6 @@ instance instTransIncomp (r : α → α → Prop) [Trans r r r] [IncompStable r]
 class Trichotomous (r : α → α → Prop) : Prop where
   trichot : ∀ a b, a = b ∨ r a b ∨ r b a
 
-@[reducible]
-theorem trichotomous (r : α → α → Prop) [Trichotomous r] : ∀ a b, a = b ∨ r a b ∨ r b a :=
-  Trichotomous.trichot (r:=r)
-
 theorem Trichotomous.eq_of_incomp {r : α → α → Prop} [Trichotomous r] {a b : α} : Incomp r a b → a = b :=
   λ hincomp => (trichot a b).elim id (Or.rec (flip absurd hincomp.left) (flip absurd hincomp.right))
 
@@ -65,7 +61,7 @@ instance instIncompStableTrichotomous (r : α → α → Prop) [Trichotomous r] 
   stable_right _ _ _ hab hbc := (Trichotomous.eq_of_incomp hbc) ▸ hab
 
 @[elab_as_elim]
-theorem trichotCases {motive : α → α → Prop} (r : α → α → Prop) [Trichotomous r] (of_rfl : ∀ a, motive a a) (of_rel : ∀ a b, r a b → motive a b) (of_opp : ∀ a b, r b a → motive a b) : ∀ (a b : α), motive a b :=
+theorem trichot_cases {motive : α → α → Prop} (r : α → α → Prop) [Trichotomous r] (of_rfl : ∀ a, motive a a) (of_rel : ∀ a b, r a b → motive a b) (of_opp : ∀ a b, r b a → motive a b) : ∀ (a b : α), motive a b :=
   λ a b =>
     match Trichotomous.trichot (r:=r) a b with
     | Or.inl h => h ▸ of_rfl a
@@ -73,8 +69,8 @@ theorem trichotCases {motive : α → α → Prop} (r : α → α → Prop) [Tri
     | Or.inr (Or.inr h) => of_opp a b h
 
 @[elab_as_elim, reducible]
-theorem trichotCasesOn {motive : α → α → Prop} (r : α → α → Prop) [Trichotomous r] (a b: α) (of_rfl : ∀ a, motive a a) (of_rel : ∀ a b, r a b → motive a b) (of_opp : ∀ a b, r b a → motive a b) : motive a b :=
-  trichotCases r of_rfl of_rel of_opp a b
+theorem trichot_cases_on {motive : α → α → Prop} (r : α → α → Prop) [Trichotomous r] (a b: α) (of_rfl : ∀ a, motive a a) (of_rel : ∀ a b, r a b → motive a b) (of_opp : ∀ a b, r b a → motive a b) : motive a b :=
+  trichot_cases r of_rfl of_rel of_opp a b
 
 @[elab_as_elim, inline, reducible]
 def decTrichotCases {motive : α → α → Sort _} (r : α → α → Prop) [Trichotomous r] [DecidableRel r] (of_rfl : ∀ a, motive a a) (of_rel : ∀ a b, r a b → motive a b) (of_opp : ∀ a b, r b a → motive a b) : (a b : α) → motive a b :=
@@ -219,7 +215,7 @@ instance (r s : α → α → Prop) [DecidableRel r] [Trichotomous s] : Trichoto
     else if hba : r b a then
       Or.inr $ Or.inr $ Or.inl hba
     else
-      trichotCasesOn s a b
+      trichot_cases_on s a b
         (λ _ _ => Or.inl rfl)
         (λ _ _ hsab hrab => Or.inr $ Or.inl $ Or.inr ⟨hrab,hsab⟩)
         (λ _ _ hsba hrab => Or.inr $ Or.inr $ Or.inr ⟨⟨hrab.right,hrab.left⟩, hsba⟩)

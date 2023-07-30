@@ -195,7 +195,7 @@ example : Asymmetry (α:=α) (r:=LT.lt) := inferInstance
 
 theorem not_lt_iff_eq_or_gt {a b : α} : ¬ a < b ↔ (a = b ∨ a > b) where
   mp := by
-    apply trichotCases (r:=LT.lt) (motive:=λ a b => ¬ a < b → a=b ∨ a > b)
+    apply trichot_cases (r:=LT.lt) (motive:=λ a b => ¬ a < b → a=b ∨ a > b)
     case of_rfl => exact λ _ _ => Or.inl rfl
     case of_rel => exact λ _ _ => absurd
     case of_opp => exact λ _ _ h _ => Or.inr h
@@ -211,7 +211,7 @@ theorem not_gt_iff_eq_or_lt {a b : α} : ¬ a > b ↔ (a = b ∨ a < b) where
 
 theorem not_eq_iff_lt_or_gt {a b : α} : a ≠ b ↔ (a < b ∨ a > b) where
   mp :=
-    trichotCasesOn (r:=LT.lt) (motive:=λ a b => a ≠ b → a < b ∨ a > b) a b (λ _ hneq => absurd rfl hneq) (λ _ _ h _ => Or.inl h) (λ _ _ h _ => Or.inr h)
+    trichot_cases_on (r:=LT.lt) (motive:=λ a b => a ≠ b → a < b ∨ a > b) a b (λ _ hneq => absurd rfl hneq) (λ _ _ h _ => Or.inl h) (λ _ _ h _ => Or.inr h)
   mpr hor := by
     intro heq; cases heq
     cases hor
@@ -261,10 +261,10 @@ instance instLinearLTChar : LinearLT Char where
 instance instLinearLTProd (α β : Type _) [LinearLT α] [LinearLT β] : LinearLT (α × β) where
   trichot := by
     intro (a₁,b₁) (a₂,b₂)
-    apply trichotCasesOn (motive:=λ x y => (x,b₁) = (y,b₂) ∨ (x,b₁) < (y,b₂) ∨ (x,b₁) > (y,b₂)) LT.lt a₁ a₂
+    apply trichot_cases_on (motive:=λ x y => (x,b₁) = (y,b₂) ∨ (x,b₁) < (y,b₂) ∨ (x,b₁) > (y,b₂)) LT.lt a₁ a₂
     case of_rfl =>
       intro a
-      apply trichotCasesOn (motive:=λ x y => (a,x) = (a,y) ∨ (a,x) < (a,y) ∨ (a,x) > (a,y)) LT.lt b₁ b₂
+      apply trichot_cases_on (motive:=λ x y => (a,x) = (a,y) ∨ (a,x) < (a,y) ∨ (a,x) > (a,y)) LT.lt b₁ b₂
       case of_rfl => intros; exact Or.inl rfl
       case of_rel => intro _ _; exact Or.inr ∘ Or.inl ∘ Or.inr ∘ And.intro rfl
       case of_opp => intro _ _; exact Or.inr ∘ Or.inr ∘ Or.inr ∘ And.intro rfl
