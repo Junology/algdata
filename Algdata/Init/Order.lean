@@ -3,7 +3,7 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
-import Algdata.Init.Logic
+import Std.Logic
 
 section Order
 
@@ -115,8 +115,9 @@ instance (r : α → α → Prop) [IncompStable r] : IncompStable (flip r) where
   stable_right _ _ _ hab hbc := IncompStable.stable_left (r:=r) _ _ _ hbc hab
 
 instance (r : α → α → Prop) [Trichotomous r] : Trichotomous (flip r) where
-  trichot a b := Or.map Eq.symm id $ Trichotomous.trichot (r:=r) b a
+  trichot a b := Or.imp Eq.symm id $ Trichotomous.trichot (r:=r) b a
 
+#print Or
 instance (r : α → α → Prop) [DecidableRel r] : DecidableRel (flip r) :=
   λ a b => inferInstanceAs (Decidable (r b a))
 
@@ -140,7 +141,7 @@ instance {β : Type _} (r : α → α → Prop) [DecidableRel r] (f : β → α)
 
 def mkInstTrichotomousInvImage {β : Type _} (r : α → α → Prop) [Trichotomous r] (f : β → α) (f_inj : ∀ b₁ b₂, f b₁ = f b₂ → b₁ = b₂) : Trichotomous (InvImage r f) where
   trichot b₁ b₂ :=
-    Or.map (f_inj b₁ b₂) id $ Trichotomous.trichot (f b₁) (f b₂)
+    Or.imp (f_inj b₁ b₂) id $ Trichotomous.trichot (f b₁) (f b₂)
 
 
 --- Lexicographical combination of two relations

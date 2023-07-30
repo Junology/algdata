@@ -38,7 +38,7 @@ instance : LinearLT FreeCMonoid.valType where
   lt := InvImage LT.lt Subtype.val
   trans h₁ h₂ := trans (r:=Nat.lt) (s:=Nat.lt) h₁ h₂
   irrefl m := Irreflective.irrefl (r:=Nat.lt) m.val
-  trichot m n := Or.map Subtype.eq id $ Trichotomous.trichot (r:=Nat.lt) m.val n.val
+  trichot m n := Or.imp_left Subtype.eq $ Trichotomous.trichot (r:=Nat.lt) m.val n.val
 
 instance : DecidableRel (α:=FreeCMonoid.valType) LT.lt :=
   inferInstanceAs (DecidableRel (α:=Subtype (Nat.lt 0)) (InvImage LT.lt Subtype.val))

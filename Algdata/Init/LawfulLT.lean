@@ -3,7 +3,8 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
-import Algdata.Init.Logic
+import Std.Logic
+
 import Algdata.Init.Order
 
 section LawfulLE
@@ -205,8 +206,8 @@ theorem not_lt_iff_eq_or_gt {a b : α} : ¬ a < b ↔ (a = b ∨ a > b) where
     case inr hgt => exact Asymmetry.asymm _ _ hlt hgt
 
 theorem not_gt_iff_eq_or_lt {a b : α} : ¬ a > b ↔ (a = b ∨ a < b) where
-  mp hngt := Or.map Eq.symm id $ not_lt_iff_eq_or_gt.mp hngt
-  mpr hor := not_lt_iff_eq_or_gt.mpr $ hor.map Eq.symm id
+  mp hngt := Or.imp_left Eq.symm $ not_lt_iff_eq_or_gt.mp hngt
+  mpr hor := not_lt_iff_eq_or_gt.mpr $ hor.imp_left Eq.symm
 
 theorem not_eq_iff_lt_or_gt {a b : α} : a ≠ b ↔ (a < b ∨ a > b) where
   mp :=
@@ -234,7 +235,7 @@ instance instLinearLTFin (n : Nat) : LinearLT (Fin n) where
   irrefl x := Nat.lt_irrefl x.val
   trans := Nat.lt_trans
   trichot x y := by
-    apply Or.map Fin.eq_of_val_eq id
+    apply Or.imp_left Fin.eq_of_val_eq
     exact Trichotomous.trichot (r:=LT.lt) x.val y.val
 
 instance instLinearLTUTF32 : LinearLT UInt32 where
@@ -244,7 +245,7 @@ instance instLinearLTUTF32 : LinearLT UInt32 where
     have : {x y : UInt32} → x.val = y.val → x=y := by
       intro x y hxy
       cases x; cases y; cases hxy; rfl
-    apply Or.map this id
+    apply Or.imp_left this
     exact Trichotomous.trichot (r:=LT.lt) x.val y.val
 
 instance instLinearLTChar : LinearLT Char where
@@ -254,7 +255,7 @@ instance instLinearLTChar : LinearLT Char where
     have : {x y : Char} → x.val = y.val → x=y := by
       intro x y hxy
       cases x; cases y; cases hxy; rfl
-    apply Or.map this id
+    apply Or.imp_left this
     exact Trichotomous.trichot (r:=LT.lt) x.val y.val
 
 instance instLinearLTProd (α β : Type _) [LinearLT α] [LinearLT β] : LinearLT (α × β) where
@@ -315,7 +316,7 @@ instance instLinearLTList {α : Type _} [LinearLT α] : LinearLT (List α) where
         cases Trichotomous.trichot (r:=LT.lt) a b
         case inl heq =>
           cases heq
-          apply Or.map (congrArg (List.cons a)) (Or.map (List.lt.tail (Irreflective.irrefl a) (Irreflective.irrefl a)) (List.lt.tail (Irreflective.irrefl a) (Irreflective.irrefl a)))
+          apply Or.imp (congrArg (List.cons a)) (Or.imp (List.lt.tail (Irreflective.irrefl a) (Irreflective.irrefl a)) (List.lt.tail (Irreflective.irrefl a) (Irreflective.irrefl a)))
           exact h_ind bs
         case inr h =>
           cases h

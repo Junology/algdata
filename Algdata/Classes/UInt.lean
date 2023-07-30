@@ -3,6 +3,7 @@ Copyright (c) 2023 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Algdata.Init.Logic
 import Algdata.Data.Nat.Bits
 import Algdata.Data.Array.Lemmas
 
@@ -434,7 +435,7 @@ theorem getBit_one : ∀ i, UInt.getBit (1 : α) i = (decide (0 < length α) && 
     rw [Nat.mod_eq_of_lt this]
     calc
       Nat.getBit 1 i = decide (0 = i) := Nat.getBit_two_pow 0 i
-      _              = decide (i = 0) := decide_eq_decide_of_iff ⟨Eq.symm, Eq.symm⟩
+      _              = decide (i = 0) := decide_eq_decide.mpr ⟨Eq.symm, Eq.symm⟩
 
 /-- All the bits higher than `UInt.length α` are `false`. -/
 protected
@@ -513,7 +514,8 @@ theorem when_true_eq (a : α) : UInt.when true a = a := by
   have : (0 : α) - 1 = ~~~(0 : α) := by
     rw [UInt.complement_eq, UInt.zero_add]
   rw [UInt.ofBool_true, this, UInt.getBit_land, UInt.getBit_complement]
-  simp [decide_eq_true hi, UInt.getBit_zero]
+  simp only [decide_eq_true hi, UInt.getBit_zero]
+  rfl
 
 protected
 theorem when_false_eq (a : α) : UInt.when false a = 0 := by
@@ -577,8 +579,8 @@ theorem getBit_bitmask (n : α) (i : Nat) : toNat n < length α → UInt.getBit 
           ⟨Nat.le_of_sub_eq_zero ∘ Eq.symm, Eq.symm ∘ Nat.sub_eq_zero_of_le⟩
         have : (i ≥ k ∧ i ≤ k) ↔ i = k :=
           ⟨λ h => Nat.le_antisymm h.right h.left, λ h => by cases h; exact ⟨Nat.le.refl, Nat.le.refl⟩⟩
-      rw [decide_eq_decide_of_iff ‹0=i-k ↔ i≤k›, Bool.and_comm _ (decide _), ←Bool.and_assoc]
-      rw [decide_and_decide, decide_eq_decide_of_iff ‹(i≥k ∧ i≤k) ↔ i=k›]
+      rw [decide_eq_decide.mpr ‹0=i-k ↔ i≤k›, Bool.and_comm _ (decide _), ←Bool.and_assoc]
+      rw [decide_and_decide, decide_eq_decide.mpr ‹(i≥k ∧ i≤k) ↔ i=k›]
       rw [Nat.zero_add, ←decideEq_and (f:=λ x => Nat.getBit x (toNat n))]
     rw [←Bool.bne_and]
     cases Nat.lt_or_ge i k

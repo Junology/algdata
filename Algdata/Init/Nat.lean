@@ -3,9 +3,8 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Std.Logic
 import Std.Data.Nat.Lemmas
-
-import Algdata.Init.Logic
 
 namespace Nat
 
@@ -35,7 +34,7 @@ theorem le_iff_eq_or_lt {m n : Nat} : m ≤ n ↔ (m = n ∨ m < n) where
     case inr hlt => exact Nat.le_of_lt hlt
 
 theorem ge_iff_eq_or_gt {m n : Nat} : m ≥ n ↔ (m = n ∨ m > n) :=
-  Iff.trans le_iff_eq_or_lt $ Or.substIff (Iff.intro Eq.symm Eq.symm) (Iff.refl _)
+  Iff.trans le_iff_eq_or_lt $ or_congr (Iff.intro Eq.symm Eq.symm) (Iff.refl _)
 
 theorem lt_iff_ne_and_ngt {m n : Nat} : m < n ↔ (m ≠ n ∧ ¬ m > n) where
   mp hlt := by

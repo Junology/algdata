@@ -184,7 +184,7 @@ theorem trichot [Trichotomous r] : ∀ (as bs : List α), as = bs ∨ List.lex r
 | (a::as), (b::bs) =>
   trichotCasesOn r a b
     (λ a h_ind =>
-      Or.map (congrArg (List.cons a)) (Or.map List.lex.tail List.lex.tail) h_ind
+      Or.imp (congrArg (List.cons a)) (Or.imp List.lex.tail List.lex.tail) h_ind
     )
     (λ _ _ h _ => Or.inr $ Or.inl $ List.lex.head h)
     (λ _ _ h _ => Or.inr $ Or.inr $ List.lex.head h)

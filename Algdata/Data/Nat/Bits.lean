@@ -5,7 +5,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 import Std.Data.Nat.Lemmas
 
-import Algdata.Init.Logic
 import Algdata.Data.Nat.Rec
 
 /-!
@@ -74,7 +73,7 @@ theorem getBit_two_pow (k i : Nat) : (2^k).getBit i = decide (k=i) := by
     case succ k =>
       conv => lhs; arg 1; change 2^k*2/2; simp
       have : k = i ↔ k.succ = i.succ := ⟨λ h => h ▸ rfl, λ h => Nat.succ.inj h⟩
-      rw [h_ind, decide_eq_decide_of_iff this]
+      rw [h_ind, decide_eq_decide.mpr this]
 
 theorem getBit_pred_two_pow (k i : Nat) : (2^k - 1).getBit i = decide (i < k) := by
   induction k generalizing i
@@ -83,7 +82,7 @@ theorem getBit_pred_two_pow (k i : Nat) : (2^k - 1).getBit i = decide (i < k) :=
   case succ k h_ind =>
     cases i
     case zero =>
-      dsimp [Nat.getBit]; apply decide_eq_decide_of_iff
+      dsimp [Nat.getBit]; apply decide_eq_decide.mpr
       have := calc
         (2^k.succ - 1) % 2
           = (2^k*2 - 1) % 2 := by rw [Nat.pow_succ]
@@ -98,7 +97,7 @@ theorem getBit_pred_two_pow (k i : Nat) : (2^k - 1).getBit i = decide (i < k) :=
           = ((2^k*2 - 1)/2).getBit i := by rw [Nat.pow_succ, Nat.getBit]
         _ = (2^k - 1).getBit i :=
           by rw [Nat.mul_comm, Nat.mul_sub_div 0 2 (2^k) (Nat.pos_mul_of_pos (by decide) (Nat.pos_pow_of_pos (n:=2) k (by decide)))]; rfl
-      rw [this, h_ind]; apply decide_eq_decide_of_iff
+      rw [this, h_ind]; apply decide_eq_decide.mpr
       exact ⟨Nat.succ_lt_succ, Nat.lt_of_succ_lt_succ⟩
 
 theorem getBit_mod_two_pow (n k i : Nat) : (n % 2^k).getBit i = (decide (i < k) && n.getBit i) := by
@@ -116,7 +115,7 @@ theorem getBit_mod_two_pow (n k i : Nat) : (n % 2^k).getBit i = (decide (i < k) 
       unfold getBit
       have : i.succ < k.succ ↔ i < k :=
         ⟨λ h => Nat.lt_of_succ_lt_succ h, λ h => Nat.succ_lt_succ h⟩
-      rw [decide_eq_decide_of_iff this]
+      rw [decide_eq_decide.mpr this]
       conv => lhs; arg 1; change n%(2^k*2)/2; rw [Nat.mul_comm, Nat.mod_mul_div_left]
       exact h_ind (n/2) k
 
@@ -161,7 +160,7 @@ theorem bitwise_div_two (f : Bool → Bool → Bool) (m n : Nat) : bitwise f m n
       cases hftf : f true false <;> by_cases hm2 : m / 2 = 0 <;> simp [hftf, hm2]
     case neg hn =>
       conv => lhs; unfold bitwise; simp [if_neg hm, if_neg hn]
-      simp [app_ite (·/2), ←Nat.mul_two]
+      simp [apply_ite (·/2), ←Nat.mul_two]
       rw [Nat.add_comm, Nat.add_mul_div_right 1 _ (z:=2) (Nat.zero_lt_succ 1)]
       have : 1/2 = 0 := by decide
       rw [this, Nat.zero_add]
@@ -181,7 +180,7 @@ theorem bitwise_mod_two (f : Bool → Bool → Bool) (f_stable : f false false =
       apply (n.mod_two_eq_zero_or_one).elim <;> intro h <;> simp [h]
   case neg hm =>
     unfold bitwise
-    simp [if_neg hm, app_ite (·%2), ←Nat.mul_two, Nat.add_mod]
+    simp [if_neg hm, apply_ite (·%2), ←Nat.mul_two, Nat.add_mod]
     by_cases n = 0
     case pos hn =>
       cases hn; simp
@@ -262,7 +261,7 @@ theorem bitwise_getBit (f : Bool → Bool → Bool) (f_stable : f false false = 
           simp [this]
       case neg hn =>
         simp [if_neg hn]
-        rw [app_ite (Nat.getBit · 0), ←Nat.mul_two, Nat.add_comm]
+        rw [apply_ite (Nat.getBit · 0), ←Nat.mul_two, Nat.add_comm]
         dsimp [getBit]
         cases hf : f (decide (m%2 = 1)) (decide (n%2 = 1)) <;> simp [hf]
   case succ i h_ind =>

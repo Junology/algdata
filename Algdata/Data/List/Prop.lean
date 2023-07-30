@@ -6,7 +6,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Std.Classes.LawfulMonad
 import Dijkstra.Control.Functor.Subreg
 
-import Algdata.Init.Logic
 import Algdata.Data.List.Basic
 
 namespace List
@@ -180,7 +179,7 @@ theorem forAllRel_flip {as : List α} {bs : List β} : List.forAllRel (flip r) b
   induction as <;> simp
   -- case nil has been closed
   case cons a as h_ind =>
-    rw [h_ind]; exact And.substIff Iff.rfl Iff.rfl
+    rw [h_ind]; exact and_congr Iff.rfl Iff.rfl
 
 @[simp]
 theorem forAllRel_reverse_left {as : List α} {bs : List β} : List.forAllRel r as.reverse bs = List.forAllRel r as bs := by
