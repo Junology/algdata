@@ -556,7 +556,7 @@ theorem getBit_bitmask (n : α) (i : Nat) : toNat n < length α → UInt.getBit 
     have : 2^toNat n < 2^length α := Nat.pow_lt_pow_right Nat.le.refl hn
     have : 1 < 2^length α := calc
       1 < 2^1 := by decide
-      _ ≤ 2^k.succ := Nat.pow_le_pow_of_le_right (Nat.zero_lt_succ 1) (k.one_le_succ)
+      _ ≤ 2^k.succ := Nat.pow_le_pow_of_le_right (Nat.zero_lt_succ 1) (Nat.succ_le_succ k.zero_le)
       _ ≤ 2^length α := Nat.pow_le_pow_of_le_right (Nat.zero_lt_succ 1) hk
     conv =>
       lhs; simp only [UInt.getBit_xor, bitmask.aux]; rw [h_ind (Nat.le_of_succ_le hk)]
@@ -590,7 +590,7 @@ theorem getBit_bitmask (n : α) (i : Nat) : toNat n < length α → UInt.getBit 
     case inr hge =>
       cases Nat.lt_or_eq_of_le hge
       case inl hgt =>
-        rw [decide_eq_false (Nat.not_lt_of_ge (Nat.le_of_lt hgt)), decide_eq_false (Nat.ne_of_gt hgt), decide_eq_false (Nat.not_lt_of_ge hgt)]
+        rw [decide_eq_false (Nat.not_lt_of_le (Nat.le_of_lt hgt)), decide_eq_false (Nat.ne_of_gt hgt), decide_eq_false (Nat.not_lt_of_le hgt)]
         rfl
       case inr heq => cases heq; simp
 

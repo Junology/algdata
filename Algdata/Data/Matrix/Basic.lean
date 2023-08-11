@@ -35,26 +35,21 @@ variable {α : Type u} {r c : Nat}
 
 --- Get the `(i,j)`-entry of a given matrix
 def get (a : @& Matrix α r c) (i : @& Fin r) (j : @& Fin c) : α :=
-  a.entry[a.hsize.symm ▸ Fin.lexFold i j]
+  a.entry[(Fin.lexFold i j).cast a.hsize.symm]
 
 --- Substitute a value into the `(i,j)`-entry of a given matrix
 def set (a : Matrix α r c) (i : @& Fin r) (j : @& Fin c) (v : α) : Matrix α r c where
-  entry := a.entry.set (a.hsize.symm ▸ Fin.lexFold i j) v
+  entry := a.entry.set ((Fin.lexFold i j).cast a.hsize.symm) v
   hsize := (Array.size_set a.entry _ v).symm ▸ a.hsize
 
 --- Counterpart of `Array.get_set_eq`
 @[simp]
 theorem get_set_eq (a : Matrix α r c) (i : Fin r) (j : Fin c) (v : α) : get (a.set i j v) i j = v := by
-  dsimp [get, set]
-  rw [getElem_eq (by rw [Fin.subst_eq]) (Fin.subst_val _)]
-  dsimp [Fin.lexFold]
+  dsimp [get, set, Fin.cast, Fin.lexFold]
   rw [Array.get_set_eq a.entry]
 
 --- Counterpart of `Array.get_set_ne` for distinct rwo indices.
 theorem get_set_ne_row (a : Matrix α r c) {i₁ i₂ : Fin r} (h : i₁ ≠ i₂) (j : Fin c) (v : α) : get (a.set i₁ j v) i₂ j = get a i₂ j := by
-  dsimp [set, get]
-  conv => lhs; rw [getElem_eq (by rw [Fin.subst_eq]) (Fin.subst_val _)]
-  conv => rhs; rw [getElem_eq rfl (Fin.subst_val _)]
   apply Array.get_set_ne a.entry
   dsimp
   intro hcontra
@@ -63,9 +58,6 @@ theorem get_set_ne_row (a : Matrix α r c) {i₁ i₂ : Fin r} (h : i₁ ≠ i�
 
 --- Counterpart of `Array.get_set_ne` for distinct column indices.
 theorem get_set_ne_col (a : Matrix α r c) (i : Fin r) {j₁ j₂ : Fin c} (h : j₁ ≠ j₂) (v : α) : get (a.set i j₁ v) i j₂ = get a i j₂ := by
-  dsimp [set, get]
-  conv => lhs; rw [getElem_eq (by rw [Fin.subst_eq]) (Fin.subst_val _)]
-  conv => rhs; rw [getElem_eq rfl (Fin.subst_val _)]
   apply Array.get_set_ne a.entry
   dsimp
   intro hcontra

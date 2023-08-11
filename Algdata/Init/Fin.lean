@@ -3,6 +3,7 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Std.Data.Nat.Lemmas
 import Std.Data.Fin.Lemmas
 
 import Algdata.Init.Nat
@@ -15,24 +16,14 @@ universe u v w
 
 namespace Fin
 
-theorem val_succ_eq_succ_val {n : Nat} (x : Fin n) : x.succ.val = x.val.succ := rfl
-
-@[simp]
-theorem subst_eq : ∀ {n k : Nat} {h : n = k} (x : Fin n), h ▸ x = ⟨x.val, h ▸ x.isLt⟩
-| _, _, rfl, mk _ _ => rfl
-
-@[simp]
-theorem subst_val : ∀ {n k : Nat} {h : n = k} (x : Fin n), (h ▸ x).val = x.val
-| _, _, rfl, mk _ _ => rfl
-
-theorem lexfold_lt_mul {m n : Nat} (x : Fin m) (y : Fin n) : x.val * n + y.val < m*n :=
+private theorem lexfold_lt_mul {m n : Nat} (x : Fin m) (y : Fin n) : x.val * n + y.val < m*n :=
   calc
     x.val * n + y.val
       < x.val * n + n := Nat.add_lt_add_left y.isLt _
     _ = (x.val.succ)*n := (Nat.succ_mul x.val n).symm
     _ ≤ m * n := Nat.mul_le_mul_right n (Nat.succ_le_of_lt x.isLt)
 
-theorem lexfold_inj {m n : Nat} {x₁ x₂: Fin m} {y₁ y₂ : Fin n} (h : x₁.val * n + y₁.val = x₂.val * n + y₂.val) : x₁=x₂ ∧ y₁=y₂ := by
+private theorem lexfold_inj {m n : Nat} {x₁ x₂: Fin m} {y₁ y₂ : Fin n} (h : x₁.val * n + y₁.val = x₂.val * n + y₂.val) : x₁=x₂ ∧ y₁=y₂ := by
   have : y₁ = y₂ := Fin.ext $
     calc y₁.val
       _ = y₁.val % n := (Nat.mod_eq_of_lt y₁.isLt).symm
@@ -52,7 +43,7 @@ theorem lexfold_inj {m n : Nat} {x₁ x₂: Fin m} {y₁ y₂ : Fin n} (h : x₁
   exact ⟨this, rfl⟩
 
 -- Folding a product of two finite sets into a finite set in the lexicographical order
-@[always_inline]
+@[inline]
 def lexFold {m n : Nat} (x : Fin m) (y : Fin n) : Fin (m*n) where
   val := x.val * n + y.val
   isLt := lexfold_lt_mul x y
@@ -77,7 +68,8 @@ def foldAllM {m : Type u → Type v} [Monad m] {n : Nat} {α : Type u} (f : Fin 
   let rec @[specialize] loop (i : Nat) (x : α) : (k : Nat) → (i+k = n) → m α
   | 0, _ => pure x
   | k+1, h => do
-    loop i.succ (← f ⟨i, h ▸ i.lt_add_succ k⟩ x) k (by rw [←h, Nat.add_succ, Nat.succ_add])
+    loop i.succ (← f ⟨i, h ▸ Nat.lt_add_of_pos_right k.zero_lt_succ⟩ x) k
+      (by rw [←h, Nat.add_succ, Nat.succ_add])
   loop 0 init n (Nat.zero_add n)
 
 @[inline]
@@ -89,17 +81,17 @@ def forAllM {m : Type u → Type v} [Monad m] {n : Nat} (f : Fin n → m PUnit) 
   let rec @[specialize] loop (i : Nat) : (k : Nat) → (i+k = n) → m PUnit
   | 0, _ => pure PUnit.unit
   | k+1, h => do
-    f ⟨i, h ▸ i.lt_add_succ k⟩
+    f ⟨i, h ▸ Nat.lt_add_of_pos_right k.zero_lt_succ⟩
     loop i.succ k (by rw [←h, Nat.add_succ, Nat.succ_add])
   loop 0 n (Nat.zero_add n)
 
-theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {f : Fin (n+1) → α → m α} {i : Nat} {a : α} {k : Nat} {h : i+(k+1)=n+1} : Fin.foldAllM.loop f i a (k+1) h = f ⟨i, h ▸ i.lt_add_succ k⟩ a >>= λ b => Fin.foldAllM.loop (f ∘ Fin.succ) i b k (Nat.succ.inj h) := by
+theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {f : Fin (n+1) → α → m α} {i : Nat} {a : α} {k : Nat} {h : i+(k+1)=n+1} : Fin.foldAllM.loop f i a (k+1) h = f ⟨i, h ▸ Nat.lt_add_of_pos_right k.zero_lt_succ⟩ a >>= λ b => Fin.foldAllM.loop (f ∘ Fin.succ) i b k (Nat.succ.inj h) := by
   induction k generalizing n f i a
   case zero => rfl
   case succ k h_ind =>
     conv =>
       lhs
-      change do loop f i.succ (← f ⟨i, h ▸ i.lt_add_succ _⟩ a) k.succ (by rw [←h, Nat.add_succ, Nat.succ_add, Nat.add_succ]; rfl)
+      change do loop f i.succ (← f ⟨i, h ▸ Nat.lt_add_of_pos_right k.succ.zero_lt_succ⟩ a) k.succ (by rw [←h, Nat.add_succ, Nat.succ_add, Nat.add_succ]; rfl)
     apply bind_congr; intro b
     rw [h_ind]
     rfl
@@ -123,8 +115,8 @@ theorem foldAllM_comp_val {m : Type u → Type v} [Monad m] {n : Nat} {α : Type
   case zero => rfl
   case succ n h_ind =>
     rw [foldAllM_succ]; dsimp
-    have : (f ∘ Fin.val (n:=n+1)) ∘ Fin.succ = (f ∘ Nat.succ) ∘ Fin.val := by
-      apply funext; intro x; dsimp; rw [Fin.val_succ_eq_succ_val]
+    have : (f ∘ Fin.val (n:=n+1)) ∘ Fin.succ = (f ∘ Nat.succ) ∘ Fin.val :=
+      funext fun x => rfl
     conv => lhs; rhs; rw [this]; ext x; rw [h_ind]
     conv => rhs; rw [Nat.foldM_succ]
 

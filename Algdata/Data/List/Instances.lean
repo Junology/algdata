@@ -6,28 +6,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Algdata.Data.List.Basic
 import Algdata.Data.List.Prop
 
+set_option autoImplicit false
+
+universe u v w
+
 namespace List
-
-/- Decidable LT -/
-instance listHasDecidableLT (α : Type _) [LT α] [DecidableRel (α:=α) LT.lt] : DecidableRel (α:=List α) LT.lt
-| _, [] => isFalse λ h => by cases h
-| [], (_::_) => isTrue $ List.lt.nil _ _
-| (a::as), (b::bs) =>
-  if hab : a < b then
-    isTrue $ List.lt.head _ _ hab
-  else if hba : b < a then
-    isFalse $ λ hcontra =>
-      match hcontra with
-      | List.lt.head _ _ h => hab h
-      | List.lt.tail _ h _ => h hba
-  else if hs : as < bs then
-    isTrue $ List.lt.tail hab hba hs
-  else
-    isFalse $ λ hcontra =>
-      match hcontra with
-      | List.lt.head _ _ h => hab h
-      | List.lt.tail _ _ h => hs h
-
 
 /- Monad -/
 instance instMonadList : Monad List where
@@ -37,7 +20,7 @@ instance instMonadList : Monad List where
 /- LawfulMonad; i.e. monad laws -/
 section LawfulMonad
 
-variable {α β γ : Type _}
+variable {α β : Type u} {γ : Type w}
 
 @[simp]
 theorem pure_eq_singleton (a : α) : pure a = [a] := rfl

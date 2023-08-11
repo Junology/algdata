@@ -8,57 +8,6 @@ import Std.Data.Nat.Lemmas
 
 namespace Nat
 
-instance instNatLEDecidableRel : DecidableRel Nat.le := λ m n =>
-  match m with
-  | zero => Decidable.isTrue n.zero_le
-  | succ m =>
-    match n with
-    | zero => Decidable.isFalse m.not_lt_zero
-    | succ n =>
-      match instNatLEDecidableRel m n with
-      | isTrue h => Decidable.isTrue (Nat.succ_le_succ h)
-      | isFalse h => Decidable.isFalse $ λ hcontra =>
-        h (Nat.le_of_succ_le_succ hcontra)
-
-instance instNatLTDecidableRel : DecidableRel Nat.lt := λ m n =>
-  instNatLEDecidableRel m.succ n
-
-theorem le_iff_eq_or_lt {m n : Nat} : m ≤ n ↔ (m = n ∨ m < n) where
-  mp hle := by
-    cases Nat.lt_or_ge m n
-    case inl h => exact Or.inr h
-    case inr h => exact Or.inl $ Nat.le_antisymm hle h
-  mpr hor := by
-    cases hor
-    case inl heq => cases heq; simp
-    case inr hlt => exact Nat.le_of_lt hlt
-
-theorem ge_iff_eq_or_gt {m n : Nat} : m ≥ n ↔ (m = n ∨ m > n) :=
-  Iff.trans le_iff_eq_or_lt $ or_congr (Iff.intro Eq.symm Eq.symm) (Iff.refl _)
-
-theorem lt_iff_ne_and_ngt {m n : Nat} : m < n ↔ (m ≠ n ∧ ¬ m > n) where
-  mp hlt := by
-    constructor
-    case left => exact ne_of_lt hlt
-    case right =>
-      rw [Nat.not_lt_eq]; exact Nat.le_of_lt hlt
-  mpr hand := by
-    cases Nat.lt_or_ge m n
-    case inl hlt => exact hlt
-    case inr hge =>
-      apply False.elim
-      cases le_iff_eq_or_lt.mp hge
-      case inl heq =>
-        exact hand.left heq.symm
-      case inr hgt =>
-        exact hand.right hgt
-
-theorem pos_mul_of_pos {m n : Nat} : m > 0 → n > 0 → m * n > 0 := by
-  intro hm hn
-  calc
-    0 = 0 * 1 := Eq.symm $ Nat.zero_mul 1
-    _ < m * n := Nat.mul_lt_mul hm hn .refl
-
 protected theorem min_zero' (n : Nat) : min n 0 = 0 := by
   rw [Nat.min_def]
   if h : n ≤ 0
@@ -68,48 +17,26 @@ protected theorem min_zero' (n : Nat) : min n 0 = 0 := by
 protected
 theorem min_eq_right' {m n : Nat} (h : m ≥ n) : min m n = n := by
   rw [Nat.min_def]
-  by_cases m ≤ n
-  case pos hle =>
-    have : m = n := Nat.le_antisymm hle h
-    rw [if_pos hle, this]
-  case neg hnle =>
-    rw [if_neg hnle]
+  if hmn : m ≤ n then
+    have : m = n := Nat.le_antisymm hmn h
+    rw [if_pos hmn, this]
+  else
+    rw [if_neg hmn]
 
 theorem min_succ_succ' (m n : Nat) : min m.succ n.succ = (min m n).succ := by
-  by_cases m ≤ n
-  case pos hle =>
-    rw [Nat.min_eq_left hle, Nat.min_eq_left (Nat.succ_le_succ hle)]
-  case neg hnle =>
-    have : m ≥ n := Nat.le_of_lt (Nat.gt_of_not_le hnle)
+  if h : m ≤ n then
+    rw [Nat.min_eq_left h, Nat.min_eq_left (Nat.succ_le_succ h)]
+  else
+    have : m ≥ n := Nat.le_of_lt (Nat.gt_of_not_le h)
     rw [Nat.min_eq_right' this, Nat.min_eq_right' (Nat.succ_le_succ this)]
 
-theorem min_eq (n : Nat) : min n n = n := Nat.min_eq_left n.le_refl
+theorem min_eq (n : Nat) : min n n = n :=
+  Nat.min_eq_left n.le_refl
 
 theorem add_sub_assoc' {m k : Nat} : m ≤ k → ∀ (n : Nat), n + m - k = n - (k - m) := by
   intro hmk n
   have : k = (k-m) + m := Eq.symm $ Nat.sub_add_cancel hmk
   conv => lhs; rw [this, Nat.add_sub_add_right]
-
-theorem lt_add_succ (n k : Nat) : n < n + k.succ := calc
-  n ≤ n + k := Nat.le_add_right n k
-  _ < (n+k).succ := Nat.lt_succ_self _
-  _ = n + k.succ := Nat.add_succ n k
-
-theorem not_lt_of_ge {m n : Nat} : m ≥ n → ¬(m < n) :=
-  flip Nat.not_le_of_gt
-
-theorem one_le_succ (n : Nat) : 1 ≤ n.succ :=
-  n.casesOn (motive:=λ n => 1 ≤ n.succ) le.refl (λ n => Nat.succ_le_succ (zero_le n.succ))
-
-theorem gt_zero_of_not_eq_zero {n : Nat} : n ≠ 0 → n > 0 :=
-  n.casesOn (motive:=λ k => k≠0 → k > 0)
-    (λ h => (h rfl).elim)
-    (λ _ _ => Nat.zero_lt_succ _)
-
-theorem ge_one_of_not_eq_zero {n : Nat} : n ≠ 0 → n ≥ 1 :=
-  n.casesOn (motive:=λ n => n≠ 0 → n ≥ 1)
-    (λ h => (h rfl).elim)
-    (λ _ _ => one_le_succ _)
 
 theorem add_pred {m n : Nat} : n > 0 → m + n.pred = (m+n).pred := by
   intro hn
@@ -118,12 +45,6 @@ theorem add_pred {m n : Nat} : n > 0 → m + n.pred = (m+n).pred := by
     exact (zero.not_lt_zero hn).elim
   case succ n =>
     simp [Nat.add_succ]
-
-theorem sub_lt_of_lt_add {l m n : Nat} : l ≥ n → l < m + n → l-n < m := by
-  intro hln hlmn
-  apply Nat.lt_of_add_lt_add_right
-  rw [Nat.sub_add_cancel hln]
-  assumption
 
 protected
 theorem lt_of_mul_lt_mul_left {a b c : Nat} : a*b < a*c → b < c := by
@@ -270,8 +191,7 @@ theorem compare_eq {m n : Nat} : m = n → compare m n = Ordering.eq := by
 theorem compare_gt {m n : Nat} : m > n → compare m n = Ordering.gt := by
   intro h
   simp [compare, instOrdNat, compareOfLessAndEq]
-  have := lt_iff_ne_and_ngt.mp h
-  rw [if_neg this.2, if_neg (this.1 ∘ Eq.symm)]
+  rw [if_neg (Nat.lt_asymm h), if_neg (Nat.ne_of_lt h).symm]
 
 
 /-!

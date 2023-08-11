@@ -100,7 +100,7 @@ def plex : MonomialOrder α where
 --- Degree-wise lexicographical order
 @[inline]
 def deglex : MonomialOrder α where
-  lt := Lexcomb (InvImage Nat.lt FreeCMonoid.degree) plex.lt
+  lt := Lexcomb (InvImage (LT.lt (α:=Nat)) FreeCMonoid.degree) plex.lt
   linear := inferInstance
   decidable := inferInstance
   unit_antisymm x h := by
@@ -128,7 +128,7 @@ def deglex : MonomialOrder α where
 --- @todo Complete the proof that `devrevlex` is a monomial order.
 @[inline]
 def degrevlex : MonomialOrder α where
-  lt := Lexcomb (InvImage Nat.lt FreeCMonoid.degree) (InvImage (KVChain.rklex (λ _=>LT.lt)) (KVChain.reverse ∘ FreeCMonoid.vars))
+  lt := Lexcomb (InvImage (LT.lt (α:=Nat)) FreeCMonoid.degree) (InvImage (KVChain.rklex (λ _=>LT.lt)) (KVChain.reverse ∘ FreeCMonoid.vars))
   linear := {
     toTrans := inferInstance
     toIrreflective := inferInstance

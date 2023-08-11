@@ -64,7 +64,7 @@ theorem get_push' (a : α) (as : Array α) (i : Nat) (h : i < (as.push a).size) 
   cases as with | mk l =>
   simp only [getElem_eq_data_get]
   dsimp [push, size] at h ⊢
-  rw [List.get_congrList (l.concat_eq_append a)]
+  rw [List.get_of_eq (l.concat_eq_append a)]
   if hil : i < l.length
   then rw [dif_pos hil]; apply List.get_append_left
   else
@@ -132,7 +132,8 @@ theorem foldlM_eq_foldlM_data'.aux [Monad m] (f : β → α → m β) (arr : Arr
     rfl
   | succ i IH =>
     have IH := IH (j+1) $ H.trans $ Nat.succ_add i j
-    have : j < arr.size := (Nat.add_comm i.succ j ▸ H.symm) ▸ j.lt_add_succ i
+    have : j < arr.size :=
+      ((Nat.add_comm ..).trans H.symm) ▸ Nat.lt_add_of_pos_right i.zero_lt_succ
     unfold foldlM.loop
     simp only [dif_pos this, bind_congr IH]
     conv => rhs; rw [← List.get_drop_eq_drop arr.data j this]

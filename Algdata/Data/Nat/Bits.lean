@@ -96,7 +96,7 @@ theorem getBit_pred_two_pow (k i : Nat) : (2^k - 1).getBit i = decide (i < k) :=
         (2^k.succ - 1).getBit i.succ
           = ((2^k*2 - 1)/2).getBit i := by rw [Nat.pow_succ, Nat.getBit]
         _ = (2^k - 1).getBit i :=
-          by rw [Nat.mul_comm, Nat.mul_sub_div 0 2 (2^k) (Nat.pos_mul_of_pos (by decide) (Nat.pos_pow_of_pos (n:=2) k (by decide)))]; rfl
+          by rw [Nat.mul_comm, Nat.mul_sub_div 0 2 (2^k) (Nat.mul_pos (by decide) (Nat.pos_pow_of_pos (n:=2) k (by decide)))]; rfl
       rw [this, h_ind]; apply decide_eq_decide.mpr
       exact ⟨Nat.succ_lt_succ, Nat.lt_of_succ_lt_succ⟩
 
