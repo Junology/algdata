@@ -58,7 +58,7 @@ open Lean Elab Term Command Meta
 structure PkgLocalDecl where
   pkgName : Name
   declName : Name
-  deriving Inhabited, Repr, BEq, Hashable
+  deriving Inhabited, BEq, Hashable
 
 
 /-!
@@ -94,10 +94,8 @@ initialize registerBuiltinAttribute {
     if !(isPrivateName declName) then
       logWarning "`[@pkg_local]` is used on a non-private declaration."
     MetaM.run' do
-      dbg_trace "declName : {declName}"
-      let moduleName ← getMainModule
-      let pkgName := (pkgid.map fun id => (id.getId)).getD moduleName.head
-      dbg_trace "pkgName : {pkgName}"
+      let pkgName := (pkgid.map fun id => (id.getId)).getD (←getMainModule).head
+      logInfo s!"register the declaration '{declName}' to '{pkgName}'"
       pkglocalExtension.add {pkgName, declName}
 }
 
@@ -120,12 +118,11 @@ syntax (name := pkg_include_all) "pkg_include " ("(" &"pkg" " := " ident ")")? "
     return decls
 
 /-- Construct `Lean.Declaration` from `PkgLocalDecl` -/
-@[inline] def makeDecl {m : Type → Type} [Monad m] [MonadEnv m] [MonadError m] (pkgdecl : PkgLocalDecl) : m Declaration := do
-  let cinfo ← getConstInfo pkgdecl.declName
+@[inline] def makeDecl {m : Type → Type} [Monad m] [MonadEnv m] (pkgdecl : PkgLocalDecl) : m (Option (Name × Declaration)) := do
+  let some cinfo := (← getEnv).find? pkgdecl.declName
+    | return none
   let name : Name :=
     mkPrivateName (← getEnv) ((privateToUserName? pkgdecl.declName).getD pkgdecl.declName)
-  if (← getEnv).contains name then
-    throwError s!"'{name}' has already been declared"
   let constval : ConstantVal := {
     name := name,
     levelParams := cinfo.levelParams,
@@ -133,45 +130,49 @@ syntax (name := pkg_include_all) "pkg_include " ("(" &"pkg" " := " ident ")")? "
   }
   match cinfo with
   | .thmInfo tinfo =>
-    return Declaration.thmDecl {
+    return .some $ .mk name $ Declaration.thmDecl {
       constval with
       value := mkConst pkgdecl.declName (tinfo.levelParams.map mkLevelParam),
     }
   | _ =>
-    return Declaration.defnDecl {
+    return .some $ .mk name $ Declaration.defnDecl {
       constval with
       value := mkConst pkgdecl.declName (cinfo.levelParams.map mkLevelParam),
       hints := ReducibilityHints.abbrev,
       safety := if cinfo.isUnsafe then .unsafe else .safe
     }
 
+@[inline] def runDecl (pkgdecl : PkgLocalDecl) : CoreM Unit := do
+  let some (name, decl) ← makeDecl pkgdecl
+    | throwError "The environment does not contain '{pkgdecl.declName}'"
+  if (← getEnv).contains name then
+    throwError "'{name}' has already been declared"
+  if let some uname := privateToUserName? name then
+    if (← getEnv).contains uname then
+      logWarning s!"The constant '{Lean.mkConst uname}' may become ambiguous"
+  addDecl decl
+  compileDecl decl
+
 @[command_elab «pkg_include»]
 def elabPkgInclude : CommandElab := fun stx => do
   let `(command| pkg_include $[(pkg := $pkgid)]? $ids,*) := stx
     | throwError "invalid use of 'pkg_include' command: {stx}"
-  let pkgName : Name := (pkgid.map fun id => id.getId).getD (← getMainModule).head
+  let pkgName : Name := (pkgid.map TSyntax.getId).getD (← getMainModule).head
+  logInfo s!"include package local declarations from '{pkgName}'"
   let pkgdecls ← getPkgLocalDecls pkgName
   let mut decls : Array PkgLocalDecl := {}
   for id in ids.getElems do
-    dbg_trace "finding {id.getId} from {repr pkgdecls}"
     let some pkgdecl := pkgdecls.find? fun d => id.getId.isSuffixOf d.declName
       | throwError "local declaration not found: {id}"
-    dbg_trace "{id} → {repr pkgdecl} found"
     decls := decls.push pkgdecl
-  liftCoreM do
-    for decl in decls do
-      let decl ← makeDecl decl
-      addDecl decl
-      compileDecl decl
+  liftCoreM <| decls.forM runDecl
 
 @[command_elab «pkg_include_all»]
 def elabPkgIncludeAll : CommandElab := fun stx => do
   let `(command| pkg_include $[(pkg := $pkgid)]? *) := stx
     | throwError "invalid use of 'pkg_include' command: {stx}"
-  let pkgdecls := pkglocalExtension.getState (← getEnv)
-  liftCoreM do
-    for pkgdecl in pkgdecls do
-      let decl ← makeDecl pkgdecl
-      addDecl decl
-      compileDecl decl
+  let pkgName := (pkgid.map TSyntax.getId).getD (← getMainModule).head
+  logInfo s!"include package local declarations from '{pkgName}'"
+  let pkgdecls ← getPkgLocalDecls pkgName
+  liftCoreM <| pkgdecls.forM runDecl
 
