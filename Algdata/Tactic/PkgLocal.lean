@@ -60,6 +60,38 @@ structure PkgLocalDecl where
   declName : Name
   deriving Inhabited, BEq, Hashable
 
+/-- The environment extension to track declarations with @[pkg_local] attribute. -/
+initialize pkglocalExtension :
+    SimpleScopedEnvExtension PkgLocalDecl (HashSet PkgLocalDecl) ←
+  registerSimpleScopedEnvExtension {
+    addEntry := fun dt => dt.insert
+    initial := {}
+  }
+
+@[inline] def foldPkgLocalDecls {m : Type → Type} [Monad m] [MonadEnv m] {α : Type} (pkgName : Name) (f : α → PkgLocalDecl → m α) (init : α) : m α := do
+  let pkgdecls := pkglocalExtension.getState (← getEnv)
+  init |> pkgdecls.foldM fun a d =>
+    if pkgName.isPrefixOf d.pkgName then
+      f a d
+    else
+      return a
+
+@[inline] def traversePkgLocalDecls {m : Type → Type} [Monad m] [MonadEnv m] (pkgName : Name) (f : PkgLocalDecl → m Unit) : m Unit := do
+  let pkgdecls := pkglocalExtension.getState (← getEnv)
+  pkgdecls.forM fun d => do
+    if pkgName.isPrefixOf d.pkgName then f d
+
+@[inline] def getPkgLocalDecls {m : Type → Type} [Monad m] [MonadEnv m] (pkgName : Name) : m (Array PkgLocalDecl) := do
+  ({} : Array PkgLocalDecl) |> foldPkgLocalDecls pkgName fun arr d =>
+    return arr.push d
+  /-
+  let declsAll := pkglocalExtension.getState (← getEnv)
+  let mut decls : Array PkgLocalDecl := {}
+  for d in declsAll do
+    if pkgName.isPrefixOf d.pkgName then decls := decls.push d
+  return decls
+  -/
+
 
 /-!
 ### `pkg_local` attribute
@@ -68,14 +100,6 @@ structure PkgLocalDecl where
 syntax (name := pkg_local) "pkg_local " ("(" &"pkg" " := " ident ")")? : attr
 
 initialize registerTraceClass `pkg_local
-
-/-- The environment extension to track declarations with @[pkg_local] attribute. -/
-initialize pkglocalExtension :
-    SimpleScopedEnvExtension PkgLocalDecl (HashSet PkgLocalDecl) ←
-  registerSimpleScopedEnvExtension {
-    addEntry := fun dt => dt.insert
-    initial := {}
-  }
 
 private def Lean.Name.head : Name → Name
 | .anonymous => .anonymous
@@ -106,16 +130,6 @@ initialize registerBuiltinAttribute {
 
 syntax (name := pkg_include) "pkg_include " ("(" &"pkg" " := " ident ")")? ident,* : command
 syntax (name := pkg_include_all) "pkg_include " ("(" &"pkg" " := " ident ")")? " * " : command
-
-@[inline] def getPkgLocalDecls {m : Type → Type} [Monad m] [MonadEnv m] (pkgName : Name) : m (Array PkgLocalDecl) := do
-  let declsAll := pkglocalExtension.getState (← getEnv)
-  bif pkgName == .anonymous then
-    return declsAll.toArray
-  else do
-    let mut decls : Array PkgLocalDecl := {}
-    for d in declsAll do
-      if d.pkgName = pkgName then decls := decls.push d
-    return decls
 
 /-- Construct `Lean.Declaration` from `PkgLocalDecl` -/
 @[inline] def makeDecl {m : Type → Type} [Monad m] [MonadEnv m] (pkgdecl : PkgLocalDecl) : m (Option (Name × Declaration)) := do
@@ -173,6 +187,37 @@ def elabPkgIncludeAll : CommandElab := fun stx => do
     | throwError "invalid use of 'pkg_include' command: {stx}"
   let pkgName := (pkgid.map TSyntax.getId).getD (← getMainModule).head
   logInfo s!"include package local declarations from '{pkgName}'"
-  let pkgdecls ← getPkgLocalDecls pkgName
-  liftCoreM <| pkgdecls.forM runDecl
+  liftCoreM <|
+    traversePkgLocalDecls pkgName runDecl
 
+
+/-!
+### `#pkg_list` command
+-/
+
+syntax (name := pkg_list) "#pkg_list " ("(" &"pkg" " := " ident ")")? : command
+
+@[command_elab «pkg_list»]
+def elabPkgList : CommandElab := fun stx => do
+  let `(command| #pkg_list $[(pkg := $pkgid)]?) := stx
+    | throwError "invalid use of '#pkg_list' command: {stx}"
+  let pkgName := (pkgid.map TSyntax.getId).getD (← getMainModule).head
+  let msg ←
+    f!"package '{pkgName}' has the following local declarations:" |>
+      foldPkgLocalDecls pkgName fun msg d => do
+        match (← getEnv).find? d.declName with
+        | some (.axiomInfo ainfo) =>
+          return msg ++ Std.Format.indentD f!"axiom {Lean.mkConst ainfo.name (ainfo.levelParams.map mkLevelParam)} : {ainfo.type}"
+        | some (.defnInfo dinfo) =>
+          return msg ++ Std.Format.indentD f!"def {Lean.mkConst dinfo.name (dinfo.levelParams.map mkLevelParam)} : {dinfo.type}"
+        | some (.thmInfo tinfo) =>
+          return msg ++ Std.Format.indentD f!"theorem {Lean.mkConst tinfo.name (tinfo.levelParams.map mkLevelParam)} : {tinfo.type}"
+        | some (.opaqueInfo oinfo) =>
+          return msg ++ Std.Format.indentD f!"opaque {Lean.mkConst oinfo.name (oinfo.levelParams.map mkLevelParam)} : {oinfo.type}"
+        | some _ =>
+          logWarning s!"'{d.declName}' is an internal declaration"
+          return msg
+        | none =>
+          logWarning s!"The environment does not contain '{d.declName}'"
+          return msg
+  logInfo msg.pretty
