@@ -13,19 +13,21 @@ import Algdata.Data.Nat.Rec
 
 universe u v
 
+pkg_include *
+
 namespace Nat
 
 /-!
 ## Utility
 -/
 
-theorem eq_of_div_mod_two_eq {m n : Nat} (hdiv : m/2 = n/2) (hmod : m%2 = n%2) : m = n :=
+private theorem eq_of_div_mod_two_eq {m n : Nat} (hdiv : m/2 = n/2) (hmod : m%2 = n%2) : m = n :=
   calc
     m = 2*(m/2) + m%2 := (Nat.div_add_mod m 2).symm
     _ = 2*(n/2) + n%2 := by rw [hdiv, hmod]
     _ = n := Nat.div_add_mod n 2
 
-theorem eq_mod2_of_decide {m n : Nat} : decide (m%2 = 1) = decide (n%2 = 1) → m%2 = n%2 := by
+private theorem eq_mod2_of_decide {m n : Nat} : decide (m%2 = 1) = decide (n%2 = 1) → m%2 = n%2 := by
   cases m.mod_two_eq_zero_or_one <;> cases n.mod_two_eq_zero_or_one
   <;> rw [‹m%2=_›, ‹n%2=_›] <;> intro hdec <;> cases hdec <;> rfl
 

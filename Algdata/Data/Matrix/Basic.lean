@@ -7,10 +7,13 @@ import Std.Data.Array.Basic
 import Std.Data.Array.Lemmas
 import Dijkstra.Control.Functor.Subreg
 
+import Algdata.Tactic.PkgLocal
 import Algdata.Init.Nat
 import Algdata.Init.Fin
 import Algdata.Init.GetElem
 import Algdata.Data.Array.Lemmas
+
+pkg_include Nat.min_eq
 
 universe u v w
 

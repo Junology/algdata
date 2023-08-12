@@ -3,9 +3,12 @@ Copyright (c) 2023 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Algdata.Tactic.PkgLocal
 import Algdata.Init.Logic
 import Algdata.Data.Nat.Bits
 import Algdata.Data.Array.Lemmas
+
+pkg_include *
 
 /-!
 # Common interface for unsinged integers

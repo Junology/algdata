@@ -6,6 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Std.Data.Nat.Lemmas
 import Std.Data.Fin.Lemmas
 
+import Algdata.Tactic.PkgLocal
 import Algdata.Init.Nat
 
 -- Disable auto-binding of unbounded variables
@@ -13,6 +14,8 @@ set_option autoImplicit false
 
 
 universe u v w
+
+pkg_include Nat.foldM_succ, Nat.fold_eq_foldM
 
 namespace Fin
 

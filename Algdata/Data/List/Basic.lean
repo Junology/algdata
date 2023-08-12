@@ -5,65 +5,79 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 import Std.Data.List.Lemmas
 
+import Algdata.Tactic.PkgLocal
+
 import Algdata.Init.Fin
 import Algdata.Init.LawfulLT
 
 set_option autoImplicit false
+
+pkg_include Nat.min_zero', min_succ_succ'
 
 namespace List
 
 universe u v w
 variable {α : Type u} {β : Type v} {γ : Type w}
 
-theorem get_congr {x y : List α} {i : Fin x.length} {j : Fin y.length} : x = y → i.val = j.val → get x i = get y j
+@[pkg_local]
+private theorem get_congr {x y : List α} {i : Fin x.length} {j : Fin y.length} : x = y → i.val = j.val → get x i = get y j
 | rfl, h => by rw [Fin.eq_of_val_eq h]
 
-theorem get_proof_irrev (x : List α) (i : Fin x.length) (h : i.val < x.length) : x.get i = x.get ⟨i.val, h⟩ :=
+@[pkg_local]
+private theorem get_proof_irrev (x : List α) (i : Fin x.length) (h : i.val < x.length) : x.get i = x.get ⟨i.val, h⟩ :=
   get_congr rfl rfl
 
-theorem get_concat_length (l : List α) (a : α) (h : l.length < (l ++ [a]).length) : get (l ++ [a]) ⟨l.length, h⟩ = a := by
+@[pkg_local]
+private theorem get_concat_length (l : List α) (a : α) (h : l.length < (l ++ [a]).length) : get (l ++ [a]) ⟨l.length, h⟩ = a := by
   apply Option.some.inj
   rw [←get?_eq_get, get?_concat_length]
 
-theorem get_take (l : List α) (n : Nat) (i : Nat) {hi₁ : i < (l.take n).length} {hi₂ : i < l.length} : get (l.take n) ⟨i,hi₁⟩ = get l ⟨i,hi₂⟩ := by
+@[pkg_local]
+private theorem get_take (l : List α) (n : Nat) (i : Nat) {hi₁ : i < (l.take n).length} {hi₂ : i < l.length} : get (l.take n) ⟨i,hi₁⟩ = get l ⟨i,hi₂⟩ := by
   rw [get_of_eq (l.take_append_drop n).symm, get_append_left]
 
-theorem dropLast_eq_take (as : List α) : as.dropLast = as.take (as.length - 1) :=
+@[pkg_local]
+private theorem dropLast_eq_take (as : List α) : as.dropLast = as.take (as.length - 1) :=
   as.rec rfl fun
   | _, [], _ => rfl
   | a, (_ :: _), IH => congrArg (a :: ·) IH
 
-theorem singleton_getLast_eq_drop (as : List α) (h : as ≠ []) : [as.getLast h] = as.drop (as.length - 1) :=
+@[pkg_local]
+private theorem singleton_getLast_eq_drop (as : List α) (h : as ≠ []) : [as.getLast h] = as.drop (as.length - 1) :=
   h |> as.rec (λ h => nomatch h) λ a as IH _ =>
     show [(a::as).getLast (λ h => nomatch h)] = drop (length as) (a :: as)
     from IH |> as.casesOn (λ _ => rfl) λ _ _ IH => IH λ h => nomatch h
 
-@[simp]
-theorem dropLast_concat_getLast (as : List α) (h : as ≠ []) : as.dropLast ++ [as.getLast h] = as := by
+@[pkg_local]
+private theorem dropLast_concat_getLast (as : List α) (h : as ≠ []) : as.dropLast ++ [as.getLast h] = as := by
   rw [as.dropLast_eq_take, as.singleton_getLast_eq_drop]
   exact as.take_append_drop (as.length - 1)
 
-@[simp]
-theorem dropLast_concat_getLast' (as : List α) (h : as ≠ []) : as.dropLast.concat (as.getLast h) = as := by
+@[pkg_local]
+private theorem dropLast_concat_getLast' (as : List α) (h : as ≠ []) : as.dropLast.concat (as.getLast h) = as := by
   rw [List.concat_eq_append]; exact as.dropLast_concat_getLast h
 
-theorem zipWith_nil_first (f : α → β → γ) : ∀ (x : List β), List.zipWith f [] x = []
+@[pkg_local]
+private theorem zipWith_nil_first (f : α → β → γ) : ∀ (x : List β), List.zipWith f [] x = []
 | [] => rfl
 | (_::_) => rfl
 
-theorem zipWith_nil_second (f : α → β → γ) : ∀ (x : List α), List.zipWith f x [] = []
+@[pkg_local]
+private theorem zipWith_nil_second (f : α → β → γ) : ∀ (x : List α), List.zipWith f x [] = []
 | [] => rfl
 | (_::_) => rfl
 
 /-- `Classical`-free version of `List.length_zipWith` in Std library -/
-theorem length_zipWith' (f : α → β → γ) (l₁ : List α) (l₂ : List β) : length (zipWith f l₁ l₂) = min l₁.length l₂.length :=
+@[pkg_local]
+private theorem length_zipWith' (f : α → β → γ) (l₁ : List α) (l₂ : List β) : length (zipWith f l₁ l₂) = min l₁.length l₂.length :=
   l₂ |> l₁.rec
     (λ l₂ => l₂.zipWith_nil_first f ▸ l₂.length.zero_min.symm)
     λ a l₁ IH => fun
       | [] => (a::l₁).zipWith_nil_second f ▸ (a::l₁).length.min_zero'.symm
       | _::l₂ => (congrArg (·+1) (IH l₂)).trans (Nat.min_succ_succ' _ _).symm
 
-theorem reverseAux_append_left {as₁ as₂ bs : List α} : reverseAux (as₁ ++ as₂) bs = as₂.reverse ++ reverseAux as₁ bs := by
+@[pkg_local]
+private theorem reverseAux_append_left {as₁ as₂ bs : List α} : reverseAux (as₁ ++ as₂) bs = as₂.reverse ++ reverseAux as₁ bs := by
   revert bs; induction as₁ <;> intro bs
   case nil => rw [reverseAux_eq_append]; rfl
   case cons a₁ as₁ h_ind =>
@@ -71,11 +85,13 @@ theorem reverseAux_append_left {as₁ as₂ bs : List α} : reverseAux (as₁ ++
     unfold reverseAux
     rw [h_ind]
 
-theorem bind_congr : ∀ {as₁ as₂ : List α} {f₁ f₂ : α → List β}, as₁ = as₂ → (∀ a, f₁ a = f₂ a) → as₁.bind f₁ = as₂.bind f₂
+@[pkg_local]
+private theorem bind_congr : ∀ {as₁ as₂ : List α} {f₁ f₂ : α → List β}, as₁ = as₂ → (∀ a, f₁ a = f₂ a) → as₁.bind f₁ = as₂.bind f₂
 | as, _, _, _, rfl, h =>
   congrArg (as.bind) (funext h)
 
-theorem bind_map_binary_eq_map_bind_map (f : α → β → γ) (as : List α) (bs : List β) : as.bind (fun a => bs.map (f a)) = (as.map f).bind bs.map := by
+@[pkg_local]
+private theorem bind_map_binary_eq_map_bind_map (f : α → β → γ) (as : List α) (bs : List β) : as.bind (fun a => bs.map (f a)) = (as.map f).bind bs.map := by
   induction as with
   | nil => rfl
   | cons a as hi =>

@@ -3,8 +3,11 @@ Copyright (c) 2022 Jun Yoshida. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 -/
 
+import Algdata.Tactic.PkgLocal
 import Algdata.Init.Order
 import Algdata.Data.KVChain.Basic
+
+pkg_include List.reverseAux_append_left
 
 /-!
 # Merge two `KVChain`s

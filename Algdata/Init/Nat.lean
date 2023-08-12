@@ -6,16 +6,19 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Std.Logic
 import Std.Data.Nat.Lemmas
 
+import Algdata.Tactic.PkgLocal
+
 namespace Nat
 
-protected theorem min_zero' (n : Nat) : min n 0 = 0 := by
+@[pkg_local]
+private theorem min_zero' (n : Nat) : min n 0 = 0 := by
   rw [Nat.min_def]
   if h : n ≤ 0
   then cases h; exact if_pos Nat.le.refl
   else exact if_neg h
 
-protected
-theorem min_eq_right' {m n : Nat} (h : m ≥ n) : min m n = n := by
+@[pkg_local]
+private theorem min_eq_right' {m n : Nat} (h : m ≥ n) : min m n = n := by
   rw [Nat.min_def]
   if hmn : m ≤ n then
     have : m = n := Nat.le_antisymm hmn h
@@ -23,22 +26,26 @@ theorem min_eq_right' {m n : Nat} (h : m ≥ n) : min m n = n := by
   else
     rw [if_neg hmn]
 
-theorem min_succ_succ' (m n : Nat) : min m.succ n.succ = (min m n).succ := by
+@[pkg_local]
+private theorem min_succ_succ' (m n : Nat) : min m.succ n.succ = (min m n).succ := by
   if h : m ≤ n then
     rw [Nat.min_eq_left h, Nat.min_eq_left (Nat.succ_le_succ h)]
   else
     have : m ≥ n := Nat.le_of_lt (Nat.gt_of_not_le h)
     rw [Nat.min_eq_right' this, Nat.min_eq_right' (Nat.succ_le_succ this)]
 
-theorem min_eq (n : Nat) : min n n = n :=
+@[pkg_local]
+private theorem min_eq (n : Nat) : min n n = n :=
   Nat.min_eq_left n.le_refl
 
-theorem add_sub_assoc' {m k : Nat} : m ≤ k → ∀ (n : Nat), n + m - k = n - (k - m) := by
+@[pkg_local]
+private theorem add_sub_assoc' {m k : Nat} : m ≤ k → ∀ (n : Nat), n + m - k = n - (k - m) := by
   intro hmk n
   have : k = (k-m) + m := Eq.symm $ Nat.sub_add_cancel hmk
   conv => lhs; rw [this, Nat.add_sub_add_right]
 
-theorem add_pred {m n : Nat} : n > 0 → m + n.pred = (m+n).pred := by
+@[pkg_local]
+private theorem add_pred {m n : Nat} : n > 0 → m + n.pred = (m+n).pred := by
   intro hn
   cases n
   case zero =>
@@ -46,24 +53,26 @@ theorem add_pred {m n : Nat} : n > 0 → m + n.pred = (m+n).pred := by
   case succ n =>
     simp [Nat.add_succ]
 
-protected
-theorem lt_of_mul_lt_mul_left {a b c : Nat} : a*b < a*c → b < c := by
+@[pkg_local]
+private theorem lt_of_mul_lt_mul_left {a b c : Nat} : a*b < a*c → b < c := by
   intro h
   apply Nat.lt_of_not_le; intro hcontra
   have := Nat.mul_le_mul_left a hcontra
   exact absurd h (Nat.not_lt_of_le this)
 
-protected
-theorem lt_of_mul_lt_mul_right {a b c : Nat} : a*c < b*c → a < b := by
+@[pkg_local]
+private theorem lt_of_mul_lt_mul_right {a b c : Nat} : a*c < b*c → a < b := by
   intro h
   apply Nat.lt_of_not_le; intro hcontra
   have := Nat.mul_le_mul_right c hcontra
   exact absurd h (Nat.not_lt_of_le this)
 
-theorem eq_zero_of_lt_one : ∀ {n : Nat}, n < 1 → n = 0
+@[pkg_local]
+private theorem eq_zero_of_lt_one : ∀ {n : Nat}, n < 1 → n = 0
 | 0, _ => rfl
 
-theorem div_le_div {a b c : Nat} : a ≤ b → a/c ≤ b/c := by
+@[pkg_local]
+private theorem div_le_div {a b c : Nat} : a ≤ b → a/c ≤ b/c := by
   intro hab
   cases Nat.lt_or_ge (b/c) (a/c)
   case inr hge => exact hge
@@ -77,33 +86,40 @@ theorem div_le_div {a b c : Nat} : a ≤ b → a/c ≤ b/c := by
       _ ≤ b := hab
     exact absurd this (Nat.lt_irrefl b)
 
-theorem mul_add_div_left (y z : Nat) {x : Nat} : x > 0 → (x*y + z)/x = y + z/x := by
+@[pkg_local]
+private theorem mul_add_div_left (y z : Nat) {x : Nat} : x > 0 → (x*y + z)/x = y + z/x := by
   intro h; rw [Nat.add_comm, Nat.add_mul_div_left z y h, Nat.add_comm]
 
-theorem mul_add_div_right (x z : Nat) {y : Nat} : y > 0 → (x*y + z)/y = x + z/y := by
+@[pkg_local]
+private theorem mul_add_div_right (x z : Nat) {y : Nat} : y > 0 → (x*y + z)/y = x + z/y := by
   intro h; rw [Nat.add_comm, Nat.add_mul_div_right z x h, Nat.add_comm]
 
-theorem mod_mul_mod (a b n : Nat) : a % n * b % n = (a*b)%n :=
+@[pkg_local]
+private theorem mod_mul_mod (a b n : Nat) : a % n * b % n = (a*b)%n :=
   Eq.symm $ calc
     a * b % n = (n*(a/n) + a % n) * b % n := by conv => lhs; rw [←Nat.div_add_mod a n]
     _         = (n * (a/n * b) + a % n * b) % n := by rw [Nat.right_distrib, Nat.mul_assoc]
     _         = a % n * b % n := by rw [Nat.add_comm,Nat.add_mul_mod_self_left]
 
-theorem mod_mod_le (a : Nat) {m n : Nat} : m > 0 → m ≤ n → a % m % n = a % m := by
+@[pkg_local]
+private theorem mod_mod_le (a : Nat) {m n : Nat} : m > 0 → m ≤ n → a % m % n = a % m := by
   intro hm hle
   have : a % m < n := Trans.trans (Nat.mod_lt a hm) hle
   rw [Nat.mod_eq_of_lt this]
 
-theorem mod_mul_mod_left (a m n : Nat) : a % (m*n) % m = a % m := by
+@[pkg_local]
+private theorem mod_mul_mod_left (a m n : Nat) : a % (m*n) % m = a % m := by
   conv =>
     rhs;
     rw [←Nat.div_add_mod a (m*n), Nat.add_comm, Nat.mul_assoc]
     simp
 
-theorem mod_mul_mod_right (a m n : Nat) : a % (m*n) % n = a % n := by
+@[pkg_local]
+private theorem mod_mul_mod_right (a m n : Nat) : a % (m*n) % n = a % n := by
   rw [Nat.mul_comm, mod_mul_mod_left]
 
-theorem mod_mul_div_left (l m n : Nat) : (l % (m*n) / m) = (l/m) % n := by
+@[pkg_local]
+private theorem mod_mul_div_left (l m n : Nat) : (l % (m*n) / m) = (l/m) % n := by
   cases m.eq_zero_or_pos
   case inl hm =>
     cases hm; simp
@@ -122,17 +138,20 @@ theorem mod_mul_div_left (l m n : Nat) : (l % (m*n) / m) = (l/m) % n := by
     rw [Nat.mul_comm]
     exact Nat.mod_lt l (Nat.mul_pos hn hm)
 
-theorem mod_mul_div_right (l m n : Nat) : (l % (m*n) / n) = (l/n) % m := by
+@[pkg_local]
+private theorem mod_mul_div_right (l m n : Nat) : (l % (m*n) / n) = (l/n) % m := by
   rw [Nat.mul_comm, mod_mul_div_left]
 
-theorem mul_sub_mod_left {l m n : Nat} : m > 0 → l ≥ n → (l*m - n)%l = (l-n)%l := by
+@[pkg_local]
+private theorem mul_sub_mod_left {l m n : Nat} : m > 0 → l ≥ n → (l*m - n)%l = (l-n)%l := by
   intro hm hln
   cases hm
   case refl => rw [Nat.mul_one]
   case step _ _ =>
     rw [mul_succ, Nat.add_sub_assoc hln, Nat.add_comm, Nat.add_mul_mod_self_left]
 
-theorem mul_sub_mod_right {l m n : Nat} : l > 0 → m ≥ n → (l*m - n)%m = (m-n)%m := by
+@[pkg_local]
+private theorem mul_sub_mod_right {l m n : Nat} : l > 0 → m ≥ n → (l*m - n)%m = (m-n)%m := by
   intro hl hmn; rw [Nat.mul_comm, mul_sub_mod_left hl hmn]
 
 
@@ -140,7 +159,8 @@ theorem mul_sub_mod_right {l m n : Nat} : l > 0 → m ≥ n → (l*m - n)%m = (m
 ## Power opertor
 -/
 
-theorem exp_lt_pow {n : Nat} (i : Nat) : n ≥ 2 → i < n^i := by
+@[pkg_local]
+private theorem exp_lt_pow {n : Nat} (i : Nat) : n ≥ 2 → i < n^i := by
   intro h
   induction i
   case zero => exact Nat.le.refl
@@ -153,7 +173,8 @@ theorem exp_lt_pow {n : Nat} (i : Nat) : n ≥ 2 → i < n^i := by
     _   ≤ n^i*n := Nat.mul_le_mul_left _ h
     _   = n^(i+1) := rfl
 
-theorem pow_lt_pow_right {n i j : Nat} : n ≥ 2 → i < j → n^i < n^j := by
+@[pkg_local]
+private theorem pow_lt_pow_right {n i j : Nat} : n ≥ 2 → i < j → n^i < n^j := by
   intro hn hij
   induction hij
   case refl => calc
@@ -166,7 +187,8 @@ theorem pow_lt_pow_right {n i j : Nat} : n ≥ 2 → i < j → n^i < n^j := by
     _   = n^j*2 := (Nat.mul_two _).symm
     _   ≤ n^j*n := Nat.mul_le_mul_left _ hn
 
-theorem pow_lt_pow_left {m n i : Nat} : m < n → i > 0 → m^i < n^i := by
+@[pkg_local]
+private theorem pow_lt_pow_left {m n i : Nat} : m < n → i > 0 → m^i < n^i := by
   intro hmn hi
   cases i
   case zero => cases hi
@@ -179,16 +201,19 @@ theorem pow_lt_pow_left {m n i : Nat} : m < n → i > 0 → m^i < n^i := by
 /-!
 ## Ordering
 -/
-theorem compare_lt {m n : Nat} : m < n → compare m n = Ordering.lt := by
+@[pkg_local]
+private theorem compare_lt {m n : Nat} : m < n → compare m n = Ordering.lt := by
   intro h
   simp [compare, instOrdNat, compareOfLessAndEq]
   rw [if_pos h]
 
-theorem compare_eq {m n : Nat} : m = n → compare m n = Ordering.eq := by
+@[pkg_local]
+private theorem compare_eq {m n : Nat} : m = n → compare m n = Ordering.eq := by
   intro h; cases h
   simp [compare, instOrdNat, compareOfLessAndEq]
 
-theorem compare_gt {m n : Nat} : m > n → compare m n = Ordering.gt := by
+@[pkg_local]
+private theorem compare_gt {m n : Nat} : m > n → compare m n = Ordering.gt := by
   intro h
   simp [compare, instOrdNat, compareOfLessAndEq]
   rw [if_neg (Nat.lt_asymm h), if_neg (Nat.ne_of_lt h).symm]
@@ -198,7 +223,8 @@ theorem compare_gt {m n : Nat} : m > n → compare m n = Ordering.gt := by
 ## Decidability of quantifiers
 -/
 
-theorem exists_or_forall_not (p : Nat → Prop) [DecidablePred p] (n : Nat) : (∃ i, (i < n ∧ p i)) ∨ (∀ i, i < n → ¬ p i) := by
+@[pkg_local]
+private theorem exists_or_forall_not (p : Nat → Prop) [DecidablePred p] (n : Nat) : (∃ i, (i < n ∧ p i)) ∨ (∀ i, i < n → ¬ p i) := by
   induction n
   case zero => exact Or.inr (λ _ h => by cases h)
   case succ n h_ind =>
@@ -220,9 +246,11 @@ theorem exists_or_forall_not (p : Nat → Prop) [DecidablePred p] (n : Nat) : (�
 ## folding
 -/
 
-theorem foldM_zero {m : Type u → Type v} [Monad m] {α : Type u} {f : Nat → α → m α} {init : α} : foldM f init 0 = pure init := rfl
+@[pkg_local]
+private theorem foldM_zero {m : Type u → Type v} [Monad m] {α : Type u} {f : Nat → α → m α} {init : α} : foldM f init 0 = pure init := rfl
 
-theorem foldM_succ {m : Type u → Type v} [Monad m] {α : Type u} {f : Nat → α → m α} {init : α} {n : Nat} : foldM f init (n+1) = f 0 init >>= λ x => foldM (f ∘ Nat.succ) x n := by
+@[pkg_local]
+private theorem foldM_succ {m : Type u → Type v} [Monad m] {α : Type u} {f : Nat → α → m α} {init : α} {n : Nat} : foldM f init (n+1) = f 0 init >>= λ x => foldM (f ∘ Nat.succ) x n := by
   unfold foldM
   conv =>
     lhs; unfold foldM.loop
@@ -243,7 +271,8 @@ theorem foldM_succ {m : Type u → Type v} [Monad m] {α : Type u} {f : Nat → 
     rw [‹n+1-k-1=n-k›, ‹succ (n-k-1)=n-k›]
     rw [h_ind (Nat.le_of_succ_le hk)]
 
-theorem foldM_succ_eq_foldM_bind {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type u} {f : Nat → α → m α} {init : α} {n : Nat} : foldM f init (n+1) = foldM f init n >>= f n := by
+@[pkg_local]
+private theorem foldM_succ_eq_foldM_bind {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type u} {f : Nat → α → m α} {init : α} {n : Nat} : foldM f init (n+1) = foldM f init n >>= f n := by
   induction n generalizing f init
   case zero =>
     conv =>
@@ -256,19 +285,22 @@ theorem foldM_succ_eq_foldM_bind {m : Type u → Type v} [Monad m] [LawfulMonad 
     conv => rhs; rw [foldM_succ]
     dsimp; rw [bind_assoc]
 
-theorem fold_eq_foldM {α : Type u} {f : Nat → α → α} {init : α} {n : Nat} : fold f n init = foldM (m:=Id) f init n := by
+@[pkg_local]
+private theorem fold_eq_foldM {α : Type u} {f : Nat → α → α} {init : α} {n : Nat} : fold f n init = foldM (m:=Id) f init n := by
   induction n
   case zero => rfl
   case succ n h_ind =>
     rw [foldM_succ_eq_foldM_bind, ←h_ind]; rfl
 
-theorem fold_hom {α : Type u} {β : Type v} (f : α → β) (g₁ : Nat → α → α) (g₂ : Nat → β → β) (n : Nat) (init : α) (hf : ∀ (i : Nat) (a : α), i < n → g₂ i (f a) = f (g₁ i a)) : n.fold g₂ (f init) = f (n.fold g₁ init) :=
+@[pkg_local]
+private theorem fold_hom {α : Type u} {β : Type v} (f : α → β) (g₁ : Nat → α → α) (g₂ : Nat → β → β) (n : Nat) (init : α) (hf : ∀ (i : Nat) (a : α), i < n → g₂ i (f a) = f (g₁ i a)) : n.fold g₂ (f init) = f (n.fold g₁ init) :=
   hf |> n.rec (λ _ => rfl) λ n IH hf => by
     dsimp [Nat.fold]
     have IH := IH λ i a h => hf i a (trans h n.lt_succ_self)
     rw [IH, hf n _ n.lt_succ_self]
 
-theorem fold_congr {α : Type u} (f g : Nat → α → α) (n : Nat) (init : α) (zero : f 0 init = g 0 init) (succ : ∀ (i : Nat) (a : α), (i+1 < n) → f (i+1) (g i a) = g (i+1) (g i a)) : n.fold f init = n.fold g init :=
+@[pkg_local]
+private theorem fold_congr {α : Type u} (f g : Nat → α → α) (n : Nat) (init : α) (zero : f 0 init = g 0 init) (succ : ∀ (i : Nat) (a : α), (i+1 < n) → f (i+1) (g i a) = g (i+1) (g i a)) : n.fold f init = n.fold g init :=
   succ |> n.rec (λ _ => rfl) fun
     | 0, _, _ => zero
     | n+1, IH, hsucc =>
@@ -281,9 +313,11 @@ theorem fold_congr {α : Type u} (f g : Nat → α → α) (n : Nat) (init : α)
 ## Bit operations
 -/
 
-theorem shiftRight_one (n : Nat) : n >>> 1 = n/2 := rfl
+@[pkg_local]
+private theorem shiftRight_one (n : Nat) : n >>> 1 = n/2 := rfl
 
-theorem shiftRight_le_self (n k : Nat) : n >>> k ≤ n := by
+@[pkg_local]
+private theorem shiftRight_le_self (n k : Nat) : n >>> k ≤ n := by
   induction k
   case zero => exact Nat.le.refl
   case succ k h_ind=>
@@ -292,7 +326,8 @@ theorem shiftRight_le_self (n k : Nat) : n >>> k ≤ n := by
       (n >>> k) / 2 ≤ n >>> k := Nat.div_le_self _ 2
       _             ≤ n := h_ind
 
-theorem shiftRight_lt {n k : Nat} : n ≠ 0 → k > 0 → n.shiftRight k < n := by
+@[pkg_local]
+private theorem shiftRight_lt {n k : Nat} : n ≠ 0 → k > 0 → n.shiftRight k < n := by
   intro hn hk
   induction k
   case zero => exact absurd hk (Nat.lt_irrefl 0)

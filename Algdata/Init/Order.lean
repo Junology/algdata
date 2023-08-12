@@ -11,9 +11,11 @@ universe u
 
 variable {α : Type u}
 
-/-
-  Indivisual axioms
+
+/-!
+## Conditions on binary relations
 -/
+
 class Irreflective (r : α → α → Prop) : Prop where
   irrefl : ∀ a, ¬ r a a
 
@@ -81,8 +83,8 @@ def decTrichotCasesOn {motive : α → α → Sort _} (r : α → α → Prop) [
   decTrichotCases r of_rfl of_rel of_opp a b
 
 
-/-
-  Strict orders
+/-!
+## Strict orders
 -/
 class StrictOrder (r : α  → α → Prop) extends Trans r r r, Irreflective r
 
@@ -93,10 +95,10 @@ class StrictLinearOrder (r : α → α → Prop) extends StrictOrder r, Trichoto
 attribute [instance] StrictLinearOrder.mk
 
 
-/-
-  Constructions
+/-!
+## Constructions
 -/
--- opposite order
+--- opposite order
 instance (r : α → α → Prop) [Trans r r r] : Trans (flip r) (flip r) (flip r) where
   trans := flip (trans (r:=r))
 
@@ -113,7 +115,6 @@ instance (r : α → α → Prop) [IncompStable r] : IncompStable (flip r) where
 instance (r : α → α → Prop) [Trichotomous r] : Trichotomous (flip r) where
   trichot a b := Or.imp Eq.symm id $ Trichotomous.trichot (r:=r) b a
 
-#print Or
 instance (r : α → α → Prop) [DecidableRel r] : DecidableRel (flip r) :=
   λ a b => inferInstanceAs (Decidable (r b a))
 
@@ -222,8 +223,8 @@ instance (r s : α → α → Prop) [DecidableRel r] [Trichotomous s] : Trichoto
         (And.intro hab hba)
 
 
-/-
-  Instances on some buit-in types
+/-!
+## Instances on some buit-in types
 -/
 instance instStrictLinearOrderNatLT : StrictLinearOrder Nat.lt where
   trans := Nat.lt_trans

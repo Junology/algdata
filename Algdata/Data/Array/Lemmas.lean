@@ -6,6 +6,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Std.Data.Array.Basic
 import Std.Data.Array.Lemmas
 
+import Algdata.Tactic.PkgLocal
 import Algdata.Init.Nat
 import Algdata.Init.GetElem
 import Algdata.Data.Nat.Rec
@@ -22,6 +23,8 @@ Lemmas around `Array` including `Classical`-free variants of those in Std librar
 namespace Array
 
 universe u v w
+
+pkg_include List.get_concat_length, List.dropLast_eq_take, List.get_take, List.dropLast_concat_getLast, List.length_zipWith'
 
 variable {α : Type u}
 
