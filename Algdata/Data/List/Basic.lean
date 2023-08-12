@@ -28,15 +28,6 @@ theorem get_concat_length (l : List α) (a : α) (h : l.length < (l ++ [a]).leng
 theorem get_take (l : List α) (n : Nat) (i : Nat) {hi₁ : i < (l.take n).length} {hi₂ : i < l.length} : get (l.take n) ⟨i,hi₁⟩ = get l ⟨i,hi₂⟩ := by
   rw [get_of_eq (l.take_append_drop n).symm, get_append_left]
 
-theorem foldl_comm {f : α → β → α} {g : α → α} : (∀ a b, f (g a) b = g (f a b)) → ∀ {init : α} {bs : List β}, bs.foldl f (g init) = g (bs.foldl f init) := by
-  intro hfg init bs
-  revert init; induction bs
-  case nil => exact λ {_} => rfl
-  case cons b bs h_ind =>
-    intro init
-    dsimp [foldl]
-    rw [hfg init b, h_ind (init:=f init b)]
-
 theorem dropLast_eq_take (as : List α) : as.dropLast = as.take (as.length - 1) :=
   as.rec rfl fun
   | _, [], _ => rfl

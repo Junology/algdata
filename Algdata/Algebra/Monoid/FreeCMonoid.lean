@@ -166,7 +166,7 @@ theorem degree_cons [LinearLT α] [DecidableRel (α:=α) LT.lt] {deg : α → Na
   dsimp [degree]
   dsimp [KVChain.foldl, List.foldl]
   rw [Nat.add_comm 0]
-  apply List.foldl_comm
+  apply List.foldl_hom
   intros; rw [Nat.add_assoc]
 
 section degree
