@@ -717,5 +717,39 @@ theorem zipWith_zipWith_right {α₁ : Type u₁} {α₂ : Type u₂} {β₁ : T
 
 end ZipWith
 
+
+/-! ## Declarations about `SizedArray.ofFn` -/
+
+section OfFn
+
+variable {α : Type u} {n : Nat}
+
+/-- Given `f : Fin n → α`, `SizedArray.ofFn f` is the array whose `i`-th entry is `f i`. -/
+@[inline]
+def ofFn (f : Fin n → α) : SizedArray α n :=
+  ⟨Array.ofFn f, Array.size_ofFn f⟩
+
+theorem get_ofFn (f : Fin n → α) (i : Nat) (h : i < n) : (ofFn f)[i] = f ⟨i,h⟩ :=
+  Array.getElem_ofFn' f i ((Array.size_ofFn f).symm ▸ h)
+
+end OfFn
+
+
+/-! ## Change of indexing sets -/
+
+section Index
+
+variable {α : Type u} {m n : Nat}
+
+/-- For `f : Fin m → Fin n` and `x : SizedArray α n`, `SizedArray.pullback f x` is the array whose `i`-th entry is `x[f i]`. -/
+def pullback (f : Fin m → Fin n) (x : SizedArray α n) : SizedArray α m :=
+  ofFn fun i => x[f i]
+
+@[simp]
+theorem get_pullback (f : Fin m → Fin n) (x : SizedArray α n) (i : Nat) (h : i < m) : (x.pullback f)[i] = x[f ⟨i,h⟩] :=
+  get_ofFn (fun i => x[f i]) i h
+
+end Index
+
 end SizedArray
 
