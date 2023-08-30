@@ -5,6 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 
 import Std.Data.Array.Lemmas
 
+import Dijkstra.Control.Functor.Subreg
 import Algdata.Data.Array.Lemmas
 
 /-!
@@ -178,6 +179,34 @@ theorem push_induction_on₂ {motive : (n : Nat) → SizedArray α n → SizedAr
     y.push_pop_back ▸ push x y.pop a y.back (IH y.pop)
 
 end Basic
+
+
+/-! ## Declaration about `SizedArray.set` -/
+
+section Set
+
+variable {α : Type u} {n : Nat}
+
+@[inline]
+def set (x : SizedArray α n) (i : @& Fin n) (v : α) : SizedArray α n :=
+  ⟨x.val.set (i.cast x.size_eq.symm) v, (x.val.size_set _ v).trans x.size_eq⟩
+
+@[inline]
+def uset (x : SizedArray α n) (i : @& USize) (v : α) (h : i.toNat < n) : SizedArray α n :=
+  ⟨x.val.uset i v (x.size_eq.symm ▸ h), (x.val.size_uset v i _).trans x.size_eq⟩
+
+@[simp]
+theorem uset_eq_set (x : SizedArray α n) {i : USize} {v : α} {h : i.toNat < n} : x.uset i v h = x.set ⟨i.val,h⟩ v :=
+  rfl
+
+@[simp]
+theorem get_set_eq (x : SizedArray α n) (i : Fin n) (v : α) : (x.set i v)[i] = v :=
+  Array.get_set_eq x.val _ v
+
+theorem get_set_ne (x : SizedArray α n) (i : Fin n) {j : Nat} (v : α) (hj : j < n) (h : i.val ≠ j) : (x.set i v)[j] = x[j] :=
+  Array.get_set_ne x.val _ v (x.size_eq.symm ▸ hj) h
+
+end Set
 
 
 /-! ## Declaration about `SizedArray.replicate` -/
@@ -536,6 +565,67 @@ theorem get_mapIdx (f : Fin n → α → β) (x : SizedArray α n) (i : Nat) {hi
       exact IH ..
 
 end Map
+
+
+/-! ## Declaration about `SizedArray.modifyM` -/
+section Modify
+
+variable {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat}
+
+/--
+Implementation of `SizedArray.modifyM`.
+
+Note that, in view of the runtime environment, we may assume `a.size < USize.size` for any `a : Array α` since its underlying data is nothing but a memory array on the heap.
+In particular, if `x : SizedArray α n`, this implies `n < USize.size` so that `i < n → i < USize.size`.
+This is why the `lcProof` below is "harmless".
+-/
+@[inline]
+unsafe def modifyMUnsafe (x : SizedArray α n) (i : Fin n) (f : α → m α) : m (SizedArray α n) := do
+  let idx : USize := ⟨i, lcProof⟩
+  let v := x.val.uget idx (x.size_eq.symm ▸ i.2)
+  -- Replace x[i] by `box(0)`.  This ensures that `v` remains unshared if possible.
+  -- Note: we assume that arrays have a uniform representation irrespective
+  -- of the element type, and that it is valid to store `box(0)` in any array.
+  let x' := x.uset idx (unsafeCast ()) i.2
+  let v ← f v
+  return x'.uset idx v i.2
+
+/--
+`modifyM x i f` modifies the `i`-th entry of `x : SizedArray α n` with an update function `f : α → m α`.
+See also `SizedArray.modify` in the special case `m = Id`.
+
+:::note info
+In contrast to `Array.modifyM`, the index `i` is of type `Fin n` instead of `Nat`.
+:::
+-/
+@[implemented_by modifyMUnsafe]
+def modifyM (x : SizedArray α n) (i : Fin n) (f : α → m α) : m (SizedArray α n) := do
+  let v := x[i]
+  let v ← f v
+  return x.set i v
+
+/--
+`modify x i f` modifies the `i`-th entry of `x : SizedArray α n` with an update function `f : α → α`.
+For updates in a monadic context `m`, see also `SizedArray.modifyM`.
+
+:::note info
+In contrast to `Array.modify`, the index `i` is of type `Fin n` instead of `Nat`.
+:::
+-/
+@[inline]
+def modify (x : SizedArray α n) (i : Fin n) (f : α → α) : SizedArray α n :=
+  Id.run <| modifyM x i f
+
+@[simp]
+theorem get_modify_eq (x : SizedArray α n) (i : Fin n) (f : α → α) : (x.modify i f)[i] = f x[i] :=
+  show (x.set i (f x[i]))[i] = f x[i]
+  from x.get_set_eq i (f x[i])
+
+theorem get_modify_ne (x : SizedArray α n) (i : Fin n) {j : Nat} (f : α → α) (hj : j < n) (h : i.val ≠ j) : (x.modify i f)[j] = x[j] :=
+  show (x.set i (f x[i]))[j] = x[j]
+  from x.get_set_ne i (f x[i]) hj h
+
+end Modify
 
 
 /-! ## Declaration about `SizedArray.zipWith` -/
