@@ -47,9 +47,6 @@ def subst {m : Nat} (h : n = m) (x : SizedArray α n) : SizedArray α m :=
 def _root_.Array.toSized (x : Array α) : SizedArray α x.size :=
   ⟨x,rfl⟩
 
-def replicate (n : Nat) (a : α) : SizedArray α n :=
-  ⟨Array.mkArray n a, Array.size_mkArray n a⟩
-
 /-- `SizedArray.val : SizedArray α n → Array α` is injective; in other words, every sized array `x : SizedArray α n` is determined by its value on `x.val`. -/
 theorem val_inj : ∀ {x y : SizedArray α n}, x.val = y.val → x = y
 | mk _ _, mk _ _, rfl => rfl
@@ -181,6 +178,39 @@ theorem push_induction_on₂ {motive : (n : Nat) → SizedArray α n → SizedAr
     y.push_pop_back ▸ push x y.pop a y.back (IH y.pop)
 
 end Basic
+
+
+/-! ## Declaration about `SizedArray.replicate` -/
+
+section Replicate
+
+variable {α : Type u}
+
+/-- `replicate n a` construct a sized array of `n` copies of `a` -/
+def replicate (n : Nat) (a : α) : SizedArray α n :=
+  ⟨Array.mkArray n a, Array.size_mkArray n a⟩
+
+theorem replicate_zero {a : α} : replicate 0 a = empty :=
+  rfl
+
+theorem replicate_succ_eq_cons {n : Nat} {a : α} : replicate (n+1) a = cons a (replicate n a) :=
+  rfl
+
+/-- Each entry of `replicate n a` equals `a` -/
+theorem get_replicate {n : Nat} {a : α} {i : Nat} {h : i < n} : (replicate n a)[i] = a :=
+  match n, i with
+  | 0, _ => nomatch h
+  | n+1, 0 => rfl
+  | n+1, i+1 => by
+    simp only [replicate_succ_eq_cons, get_cons_succ (hi₁:=h) (hi₂:=Nat.lt_of_succ_lt_succ h)]
+    exact get_replicate (a:=a) (i:=i) (h:=Nat.lt_of_succ_lt_succ h)
+
+theorem replicate_succ_eq_push {n : Nat} {a : α} : replicate (n+1) a = (replicate n a).push a :=
+  ext _ _ fun i hi => by
+    simp only [get_replicate, get_push]
+    apply dite (i < n) <;> (intro h; simp only [h]; rfl)
+
+end Replicate
 
 
 /-! ## Declaration about `SizedArray.foldl` and `SizedArray.foldr` -/
