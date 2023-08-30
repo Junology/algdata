@@ -64,6 +64,7 @@ instance getElem : GetElem (SizedArray α n) Nat α (λ _ i => i < n) where
   getElem x i h := x.val[i]'(x.size_eq.symm ▸ h)
 
 /-- Two `SizedArray α n` equal to each other as soon as their contents all coincide. -/
+@[ext]
 theorem ext (x y : SizedArray α n) (h : ∀ (i : Nat), (hi : i < n) → x[i] = y[i]) : x = y :=
   val_inj $ Array.ext x.val y.val (x.size_eq.trans y.size_eq.symm) λ i hi₁ hi₂ =>
     calc x.val[i]
@@ -555,6 +556,18 @@ theorem zipWith_push (x : SizedArray α n) (a : α) (y : SizedArray β n) (b : �
   apply congrArg
   show (push x a)[i]'(.step h) = x[i]'h
   rw [get_push, dif_pos h]
+
+@[simp]
+theorem get_zipWith {x : SizedArray α n} {y : SizedArray β n} {f : α → β → γ} {i : Nat} {h : i < n} : (zipWith x y f)[i] = f x[i] y[i] := by
+  induction x, y using cons_induction_on₂ generalizing i with
+  | empty => cases h
+  | cons a x b y IH =>
+    simp only [zipWith_cons]
+    cases i with
+    | zero => simp only [get_cons_zero]
+    | succ i =>
+      simp only [Nat.succ_eq_add_one, get_cons_succ (hi₁:=h) (hi₂:=Nat.lt_of_succ_lt_succ h)]
+      exact IH
 
 theorem zipWith_flip (x : SizedArray α n) (y : SizedArray β n) (f : α → β → γ) : zipWith y x (flip f) = zipWith x y f :=
   cons_induction_on₂ x y (zipWith_empty f) λ a x b y IH => by
