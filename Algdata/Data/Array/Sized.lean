@@ -616,6 +616,9 @@ In contrast to `Array.modify`, the index `i` is of type `Fin n` instead of `Nat`
 def modify (x : SizedArray α n) (i : Fin n) (f : α → α) : SizedArray α n :=
   Id.run <| modifyM x i f
 
+theorem modify_eq_set_get (x : SizedArray α n) (i : Fin n) (f : α → α) : x.modify i f = x.set i (f <| x[i.val]'i.isLt) :=
+  rfl
+
 @[simp]
 theorem get_modify_eq (x : SizedArray α n) (i : Fin n) (f : α → α) : (x.modify i f)[i] = f x[i] :=
   show (x.set i (f x[i]))[i] = f x[i]

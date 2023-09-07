@@ -79,6 +79,11 @@ theorem get_push' (a : α) (as : Array α) (i : Nat) (h : i < (as.push a).size) 
     simp only [this]
     exact l.get_concat_length a _
 
+/-- `Classical`-free version of `Array.get_push_eq`. -/
+theorem get_push_eq_safe (as : Array α) (a : α)
+  : (as.push a)[as.size]'(as.size_push a ▸ as.size.lt_succ_self) = a := by
+  simp only [get_push', size_push, dif_neg (Nat.lt_irrefl as.size)]
+
 /-- `as.pop[i] = as[i]` for `as : Array α` as long as the index `i` is valid. -/
 @[simp]
 theorem get_pop (as : Array α) (i : Nat) {hi₁ : i < as.pop.size} {hi₂ : i < as.size} : as.pop[i] = as[i] := by
@@ -431,6 +436,19 @@ theorem size_modify : ∀ (x : Array α) (n : Nat) (f : α → α), (x.modify n 
   conv at hw => rhs; change modify x n f
   rw [←hw]
   exact w.property
+
+@[simp]
+theorem modify_eq_set_get (x : Array α) (i : Nat) (f : α → α) (hi : i < x.size)
+  : x.modify i f = x.set ⟨i,hi⟩ (f <| x[i]'hi) := by
+  dsimp [modify, modifyM, Id.run]
+  simp only [dif_pos hi]
+
+@[simp]
+theorem getElem_modify_eq (x : Array α) (i : Nat) (f : α → α) (hi : i < x.size)
+  : (x.modify i f)[i]'(x.size_modify i f ▸ hi) = f (x[i]'hi) := by
+  dsimp [modify, modifyM, Id.run]
+  simp only [dif_pos hi]
+  rw [Array.get_set_eq]
 
 end ModifyM
 
