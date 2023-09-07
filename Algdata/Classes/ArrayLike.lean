@@ -39,7 +39,7 @@ As in the case of `GetElem`, the class implements `xs{i ≔ e}` notation.
 
 When one uses this notation, the proof side-condition `dom xs i` is automatically dispatched by the `get_elem_tactic` tactic, which can be extended by adding more clauses to `get_elem_tactic_trivial`.
 -/
-class SetElem (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : outParam (cont → idx → Prop)) where
+class SetElem (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : outParam (cont → idx → elem → Prop)) where
   /--
   The syntax `arr{i ≔ a}` represents the new term obtained by substituting `a : elem` into the position `i : idx` in the container `arr : cont` (e.g. `cont ≡ Array α`).
   If there are proof side conditions to the application, they will be automatically inferred by the `get_elem_tactic` tactic.
@@ -56,16 +56,16 @@ class SetElem (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : o
   * `arr{i ∵ h ≔ a}`: uses `h` to prove the side goal
   - `set arr i a h`
   -/
-  setElem (xs : cont) (i : idx) (e : elem) : dom xs i → cont
+  setElem (xs : cont) (i : idx) (e : elem) : dom xs i e → cont
 
 namespace SetElem
 
-variable {cont : Type u} {idx : Type v} {elem : Type w} {dom : cont → idx → Prop}
+variable {cont : Type u} {idx : Type v} {elem : Type w} {dom : cont → idx → elem → Prop}
 variable [SetElem cont idx elem dom]
 
 /-- `SetElem.setElem! xs i e` substitutes `e` into the `i`-th position in `xs` without any proof; it panics if the side goal is false. -/
-def setElem! (xs : cont) (i : idx) [Decidable (dom xs i)] (e : elem) := 
-  if h : dom xs i then
+def setElem! (xs : cont) (i : idx) (e : elem) [Decidable (dom xs i e)] := 
+  if h : dom xs i e then
     setElem xs i e h
   else
     @panic cont ⟨xs⟩ "index out of bounds"
@@ -74,7 +74,7 @@ declare_syntax_cat set_elem_setter
 
 syntax:min term " ≔ " term : set_elem_setter
 syntax:min term " !≔ " term : set_elem_setter
-syntax:min term " ∵ " term " ≔ " term : set_elem_setter
+syntax:min term " ≔ " term " ∵ " term : set_elem_setter
 
 @[inherit_doc SetElem.setElem]
 syntax:max (name := setElemMacro) term noWs "{" withoutPosition(set_elem_setter,*) "}" : term
@@ -90,7 +90,7 @@ open Lean in
       xs ← `(SetElem.setElem $xs $i $a (by get_elem_tactic))
     | `(set_elem_setter| $i:term !≔ $a:term) =>
       xs ← `(SetElem.setElem! $xs $i $a)
-    | `(set_elem_setter| $i:term ∵ $h:term ≔ $a:term) =>
+    | `(set_elem_setter| $i:term ≔ $a:term ∵ $h:term) =>
       xs ← `(SetElem.setElem $xs $i $a $h)
     | _ => Macro.throwUnsupported
   return xs
@@ -98,18 +98,18 @@ open Lean in
 
 end SetElem
 
-instance (α : Type u) : SetElem (Array α) Nat α fun x i => i < x.size where
+instance (α : Type u) : SetElem (Array α) Nat α fun x i _ => i < x.size where
   setElem arr i a h := arr.set ⟨i,h⟩ a
 
 @[simp]
-theorem Array.size_setElem {α : Type u} (arr : Array α) (i : Nat) (a : α) {hi : i < arr.size} : Array.size arr{i ∵ hi ≔ a} = arr.size :=
+theorem Array.size_setElem {α : Type u} (arr : Array α) (i : Nat) (a : α) {hi : i < arr.size} : Array.size arr{i ≔ a ∵ hi} = arr.size :=
   arr.size_set ⟨i,hi⟩ a
 
-instance (α : Type u) : SetElem (List α) Nat α fun x i => i < x.length where
+instance (α : Type u) : SetElem (List α) Nat α fun x i _ => i < x.length where
   setElem l i a _ := l.set i a
 
 @[simp]
-theorem List.length_setElem {α : Type u} (l : List α) (i : Nat) (a : α) {hi : i < l.length} : List.length l{i ∵ hi ≔ a} = l.length :=
+theorem List.length_setElem {α : Type u} (l : List α) (i : Nat) (a : α) {hi : i < l.length} : List.length l{i ≔ a ∵ hi} = l.length :=
   l.length_set i a
 
 
@@ -157,31 +157,33 @@ end FaithfulGetElem
 
 /-! ### Array-like structures -/
 
-/-- `Array cont idx elem` asserts that `cont` is an array-like type with indices of type `idx` and elements of type `elem`. Major instances include `List` and `Array`. -/
-class ArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : outParam (cont → idx → Prop)) extends GetElem cont idx elem dom, SetElem cont idx elem dom where
+/-- `Array cont idx elem domGet domSet ` asserts that `cont` is an array-like type with indices of type `idx` and elements of type `elem` with read/write index validators being `domGet` and `domSet` respectively. Major instances include `List` and `Array`. -/
+class ArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGet : outParam (cont → idx → Prop)) (domSet : outParam (cont → idx → elem → Prop)) extends GetElem cont idx elem domGet, SetElem cont idx elem domSet where
+  dom_imp {xs: cont} {i : idx} : ∀ {e : elem}, domSet xs i e → domGet xs i :=
+    by intros; trivial
   /-- `ArrayLike.noshrink` guarantees that `j : idx` is a valid index for `xs{i ≔ e}` as soon as it is for `xs`.-/
-  noshrink {xs : cont} {i : idx} {e : elem} {h : dom xs i} {j : idx} : dom xs j → dom xs{i ∵ h ≔ e} j
+  noshrink {xs : cont} {i : idx} {e : elem} {h : domSet xs i e} {j : idx} : domGet xs j → domGet xs{i ≔ e ∵ h} j
   /-- cf `List.get_set_eq` and `Array.get_set_eq`. -/
-  get_set_eq (xs : cont) (i : idx) (e : elem) {h : dom xs i} : xs{i ∵ h ≔ e}[i]'(noshrink h) = e
+  get_set_eq (xs : cont) (i : idx) (e : elem) {h : domSet xs i e} : xs{i ≔ e ∵ h}[i]'(noshrink <| dom_imp h) = e
   /-- cf `List.get_set_ne` and `Array.get_set_ne`. -/
-  get_set_ne (xs : cont) {i j : idx} (h : i ≠ j) (e : elem) {hi : dom xs i} (hj : dom xs j) : xs{i ∵ hi ≔ e}[j]'(noshrink hj) = xs[j]'(hj)
+  get_set_ne (xs : cont) {i j : idx} (h : i ≠ j) (e : elem) {hi : domSet xs i e} (hj : domGet xs j) : xs{i ≔ e ∵ hi}[j]'(noshrink hj) = xs[j]'(hj)
 
-instance (α : Type u) : ArrayLike (Array α) Nat α (fun as i => i < as.size) where
+instance (α : Type u) : ArrayLike (Array α) Nat α (fun as i => i < as.size) (fun as i _ => i < as.size) where
   noshrink {as i a h _} hj := trans (s:=Eq) hj (as.size_set ⟨i,h⟩ a).symm
   get_set_eq as i a {h} := as.get_set_eq ⟨i,h⟩ a
   get_set_ne as i _ h a hi hj := as.get_set_ne ⟨i,hi⟩ a hj h
 
-instance (α : Type u) : ArrayLike (List α) Nat α (fun l i => i < l.length) where
+instance (α : Type u) : ArrayLike (List α) Nat α (fun l i => i < l.length) (fun l i _ => i < l.length) where
   noshrink {l i a _ _} hj := trans (s:=Eq) hj (l.length_set i a).symm
   get_set_eq l i a {h} := l.get_set_eq i a (l.length_set i a ▸ h)
   get_set_ne l i _ h a _ hj := l.get_set_ne h a (l.length_set i a ▸ hj)
 
 namespace ArrayLike
 
-variable {cont : Type u} {idx : Type v} {elem : Type w} {dom : cont → idx → Prop}
-variable [ArrayLike cont idx elem dom]
+variable {cont : Type u} {idx : Type v} {elem : Type w} {domGet : cont → idx → Prop} {domSet : cont → idx → elem → Prop}
+variable [ArrayLike cont idx elem domGet domSet]
 
-theorem get_set_ite [DecidableEq idx] (xs : cont) (i j : idx) (e : elem) {hi : dom xs i} {hj : dom xs j} : xs{i ∵ hi ≔ e}[j]'(noshrink hj) = if i = j then e else xs[j]'hj := by
+theorem get_set_ite [DecidableEq idx] (xs : cont) (i j : idx) (e : elem) {hi : domSet xs i e} {hj : domGet xs j} : xs{i ≔ e ∵ hi}[j]'(noshrink hj) = if i = j then e else xs[j]'hj := by
   if h : i = j then
     cases h
     exact Eq.trans (get_set_eq xs i e) (if_pos rfl).symm
@@ -194,17 +196,21 @@ end ArrayLike
 /-! ### Array-like structure with fixed size -/
 
 /--
-`SizedArrayLike cont elem len` asserts that `cont` is a `Nat`-indexed array-like type with fixed length `len` and elements of type `elem`. It extends
+`SizedArrayLike cont idx elem domGet domSet` asserts that `cont` is an array-like structure type with the side conditions `domGet`/`domSet` independent of arrays.
+For example, the fixed length array `SizedArray α n` has the instance for
 ```lean
-ArrayLike cont Nat elem (fun _ i => i < len)
+SizedArrayLike (SizedArray α n) Nat α (· < n) (fun i _ => i < n)
 ```
-class, and the `ArrayLike.noshrink` field is filled automatically.
-Major instances includes `SizedArray`.
+It is implemented as a special case of `ArrayLike` as
+```lean
+ArrayLike cont idx elem (fun i _ => domGet i) (fun i _ e => domSet i e)
+```
+Thanks to the independency, the `ArrayLike.noshrink` field is filled automatically.
 -/
-class SizedArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : outParam (idx → Prop)) extends ArrayLike cont idx elem fun _ => dom where
+class SizedArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGet : outParam (idx → Prop)) (domSet : outParam (idx → elem → Prop)) extends ArrayLike cont idx elem (fun _ => domGet) (fun _ => domSet) where
   noshrink := id
 
-instance (α : Type u) (n : Nat) : SizedArrayLike (SizedArray α n) Nat α (· < n) where
+instance (α : Type u) (n : Nat) : SizedArrayLike (SizedArray α n) Nat α (· < n) (fun i _ => i < n) where
   setElem arr i a h := arr.set ⟨i,h⟩ a
   get_set_eq arr i a h := arr.get_set_eq ⟨i,h⟩ a
   get_set_ne arr i _ h a hi hj := arr.get_set_ne ⟨i,hi⟩ a hj h
@@ -216,12 +222,12 @@ variable {cont : Type u}
 
 section Basic
 
-variable {idx : Type v} {elem : Type w} {dom : idx → Prop}
-variable [SizedArrayLike cont idx elem dom]
+variable {idx : Type v} {elem : Type w} {domGet : idx → Prop} {domSet : idx → elem → Prop}
+variable [SizedArrayLike cont idx elem domGet domSet]
 
-theorem ext [FaithfulGetElem cont idx] (xs ys : cont) (h : ∀ (i : idx) (hi : dom i), xs[i]'hi = ys[i]'hi) : xs = ys :=
+theorem ext [FaithfulGetElem cont idx] (xs ys : cont) (h : ∀ (i : idx) (hi : domGet i), xs[i]'hi = ys[i]'hi) : xs = ys :=
   FaithfulGetElem.ext (idx:=idx) xs ys
-    (fun i => Iff.refl (dom i))
+    (fun i => Iff.refl (domGet i))
     (fun i hx _ => h i hx)
 
 end Basic
@@ -230,7 +236,7 @@ end Basic
 section OfFn
 
 variable {elem : Type w} {len : Nat}
-variable [SizedArrayLike cont Nat elem (· < len)]
+variable [SizedArrayLike cont Nat elem (· < len) (fun i _ => i < len)]
 
 variable (cont) in
 /--
@@ -242,7 +248,7 @@ In particular, we have the following (see `get_ofFn`):
 -/
 def ofFn [Inhabited cont] (f : Fin len → elem) : cont := go 0 default where
   go (i : Nat) (x : cont) : cont :=
-    if h : i < len then go (i+1) x{i ∵ h ≔ f ⟨i,h⟩} else x
+    if h : i < len then go (i+1) x{i ≔ f ⟨i,h⟩ ∵ h} else x
   termination_by _ => len - i
 
 theorem get_ofFn_go (f : Fin len → elem) (i j : Nat) (hi : i < len) (x : cont) : (i ≥ j → (ofFn.go cont f j x)[i]'hi = f ⟨i,hi⟩) ∧ (i < j → (ofFn.go cont f j x)[i]'hi = x[i]'hi) := by
