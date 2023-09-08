@@ -165,8 +165,10 @@ class ArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGe
     by intros; trivial
   /-- Every entry in the structure `xs` must be settable in the same index. -/
   dom_get {xs : cont} {i : idx} (hi : domGet xs i) : domSet xs i (xs[i]'hi)
-  /-- `ArrayLike.noshrink` guarantees that `j : idx` is a valid index for `xs{i ≔ e}` as soon as it is for `xs`.-/
+  /-- `j : idx` is a valid index for `xs{i ≔ e}` as soon as it is for `xs`; it is the converse to `ArrayLike.noexpand`. -/
   noshrink {xs : cont} {i : idx} {e : elem} {h : domSet xs i e} {j : idx} : domGet xs j → domGet xs{i ≔ e ∵ h} j
+  /-- `j : idx` is a valid index for `xs` provides it is for `xs{i ≔ e}`; it is the converse to `ArrayLike.noshrink`. -/
+  noexpand {xs : cont} {i : idx} {e : elem} {h : domSet xs i e} {j : idx} : domGet xs{i ≔ e ∵ h} j → domGet xs j
   /-- cf `List.get_set_eq` and `Array.get_set_eq`. -/
   get_set_eq (xs : cont) (i : idx) (e : elem) {h : domSet xs i e} : xs{i ≔ e ∵ h}[i]'(noshrink <| dom_imp h) = e
   /-- cf `List.get_set_ne` and `Array.get_set_ne`. -/
@@ -180,6 +182,7 @@ class ArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGe
 instance (α : Type u) : ArrayLike (Array α) Nat α (fun as i => i < as.size) (fun as i _ => i < as.size) where
   dom_get := id
   noshrink {as i a h _} hj := trans (s:=Eq) hj (as.size_set ⟨i,h⟩ a).symm
+  noexpand {as i a h j} hj := trans hj (as.size_setElem i a)
   get_set_eq as i a {h} := as.get_set_eq ⟨i,h⟩ a
   get_set_ne as i _ h a hi hj := as.get_set_ne ⟨i,hi⟩ a hj h
   modify as i _ f _ := as.modify i f
@@ -187,7 +190,8 @@ instance (α : Type u) : ArrayLike (Array α) Nat α (fun as i => i < as.size) (
 
 instance instArrayLikeListNat (α : Type u) : ArrayLike (List α) Nat α (fun l i => i < l.length) (fun l i _ => i < l.length) where
   dom_get := id
-  noshrink {l i a _ _} hj := trans (s:=Eq) hj (l.length_set i a).symm
+  noshrink {l i a _ _} hj := trans hj (l.length_set i a).symm
+  noexpand {l i a hi j} hj := trans hj (l.length_set i a)
   get_set_eq l i a {h} := l.get_set_eq i a (l.length_set i a ▸ h)
   get_set_ne l i _ h a _ hj := l.get_set_ne h a (l.length_set i a ▸ hj)
 
@@ -222,6 +226,7 @@ Thanks to the independency, the `ArrayLike.noshrink` field is filled automatical
 -/
 class SizedArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGet : outParam (idx → Prop)) (domSet : outParam (idx → elem → Prop)) extends ArrayLike cont idx elem (fun _ => domGet) (fun _ => domSet) where
   noshrink := id
+  noexpand := id
 
 instance (α : Type u) (n : Nat) : SizedArrayLike (SizedArray α n) Nat α (· < n) (fun i _ => i < n) where
   dom_get := id
