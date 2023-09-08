@@ -22,6 +22,7 @@ The main target structures include `List`, `Array`, and `SizedArray`.
 * `FaithfulGetElem` ensures that, for a given instance `GetElem cont idx elem dom`, two terms `x y : cont` of a container type equal to each other as soon as the side conditions `dom x i` and `dom y i` are equivalent and `x[i] = y[i]` for every valid index `i`.
 * `ArrayLike` extends both `GetElem` and `SetElem` and ensures consistency of get-set operations;
 * `SizedArrayLike` is similar to `ArrayLike` with the validity of indices being independent of the structure; in particular, it is used to represent array-like structures with fixed sizes.
+* `MapIdxElem` is a class between a pair of array-like structures such that one can construct one from the other by applying a (possibly index-dependent) unary operation on the elements; in particular, it is an abstraction of `Array.mapIdx`.
 
 -/
 
