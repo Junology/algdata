@@ -21,14 +21,14 @@ The main target structures include `List`, `Array`, and `SizedArray`.
 * `SetElem` is a "write"-counterpart of `GetElem` in the core and implements the notation `arr{i ≔ a}` which is supposed to represent the term obtained by substituting `a` into the `i`-th position in the array-like structure `arr`.
 * `FaithfulGetElem` ensures that, for a given instance `GetElem cont idx elem dom`, two terms `x y : cont` of a container type equal to each other as soon as the side conditions `dom x i` and `dom y i` are equivalent and `x[i] = y[i]` for every valid index `i`.
 * `ArrayLike` extends both `GetElem` and `SetElem` and ensures consistency of get-set operations;
-* `SizedArrayLike` is similar to `ArrayLike` while the index bound is fixed.
+* `SizedArrayLike` is similar to `ArrayLike` with the validity of indices being independent of the structure; in particular, it is used to represent array-like structures with fixed sizes.
 
 -/
 
 -- Disable auto-binding of unbounded variable
 set_option autoImplicit false
 
-universe u v w
+universe u u₁ u₂ u₃ v w w₁ w₂ w₃
 
 
 /-! ### SetElem -/
@@ -261,8 +261,9 @@ In particular, we have the following (see `get_ofFn`):
 ∀ (i : Fin dim), (ofFn f)[i] = f i
 ```
 -/
+@[inline]
 def ofFn [Inhabited cont] (f : Fin len → elem) : cont := go 0 default where
-  go (i : Nat) (x : cont) : cont :=
+  @[specialize] go (i : Nat) (x : cont) : cont :=
     if h : i < len then go (i+1) x{i ≔ f ⟨i,h⟩ ∵ h} else x
   termination_by _ => len - i
 
@@ -298,3 +299,73 @@ theorem get_ofFn [Inhabited cont] (f : Fin len → elem) (i : Nat) {hi : i < len
 end OfFn
 
 end SizedArrayLike
+
+
+/-! ### `MapIdxElem` class -/
+
+/--
+`MapIdxElem cont₁ cont₂ idx` implements the notation `f <$>ₑ xs` for a structure `xs : cont₁` and an index-dependent unary operation `f : (i : idx) → dom xs i → elem₁ → elem₂` under the assumption `GetElem cont₁ idx elem₁ dom` and `GetElem cont₂ idx elem₂ _`, which is supposed to be a structure in `cont₂` obtained by appying `f` to each element of `xs`.
+The concept is very similar to `Functor` while the instances of this class are the structures themselves, e.g. `Array α` or `List α`, rather than type constructors, e.g. `Array` or `List`.
+
+:::note info
+cf. `MonoFunctor` class in Haskell `MonoTraversable` library
+:::
+-/
+class MapIdxElem
+    (cont₁ : Type u₁) (cont₂ : Type u₂) (idx : Type v)
+    {elem₁ : outParam (Type w₁)} {elem₂ : outParam (Type w₂)}
+    {dom₁ : outParam (cont₁ → idx → Prop)} {dom₂ : outParam (cont₂ → idx → Prop)}
+    [GetElem cont₁ idx elem₁ dom₁] [GetElem cont₂ idx elem₂ dom₂]
+  where
+  /-- `MapElem.mapElem f xs`, or `f <$>ₑ xs`, maps `xs` into another structure with the same indexing type and elements `f xs[i]`; cf. `Functor.map`. -/
+  mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) : cont₂
+  dom_mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) : ∀ (i : idx), dom₁ xs i → dom₂ (mapIdxElem xs f) i
+  get_mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) (i : idx) (hi : dom₁ xs i) : (mapIdxElem xs f)[i]'(dom_mapIdxElem xs f i hi) = f i hi (xs[i]'hi)
+
+@[inherit_doc] infixr:100 " <$>ₑ " => MapIdxElem.mapIdxElem
+
+instance instMapElemArrayNat (α : Type u₁) (β : Type u₂) : MapIdxElem (Array α) (Array β) Nat where
+  mapIdxElem arr f := arr.mapIdx fun i => f i.1 i.2
+  dom_mapIdxElem arr f _ hi := arr.size_mapIdx' (fun i => f i.1 i.2) ▸ hi
+  get_mapIdxElem arr f i hi :=
+    arr.getElem_mapIdx_safe _ i <| by
+      rw [arr.size_mapIdx' (fun i => f i.1 i.2)]; exact hi
+
+instance instMapElemListNat (α : Type u₁) (β : Type u₂) : MapIdxElem (List α) (List β) Nat where
+  mapIdxElem l f := List.mapIdx' l (fun i => f i.1 i.2)
+  dom_mapIdxElem l _ _ hi := l.length_mapIdx' _ ▸ hi
+  get_mapIdxElem l _ _ _ := l.getElem_mapIdx' _ _ _
+
+instance instMapElemSizedArrayNat (α : Type u₁) (β : Type u₂) (n : Nat) : MapIdxElem (SizedArray α n) (SizedArray β n) Nat where
+  mapIdxElem arr f := arr.mapIdx fun i => f i.1 i.2
+  dom_mapIdxElem _ _ _ hi := hi
+  get_mapIdxElem arr _ i _ := arr.get_mapIdx _ i
+
+
+namespace MapIdxElem
+
+section ZipWith
+
+variable {cont₁ : Type u₁} {cont₂ : Type u₂} {cont : Type u}
+variable {idx : Type v}
+variable {elem₁ : Type w₁} {elem₂ : Type w₂} {elem : Type w}
+variable {dom₁ : cont₁ → idx → Prop} {dom₂ : cont₂ → idx → Prop} {dom : cont → idx → Prop}
+variable [GetElem cont₁ idx elem₁ dom₁] [GetElem cont₂ idx elem₂ dom₂]
+variable [MapIdxElem cont₁ cont₂ idx]
+variable [GetElem cont idx elem dom]
+
+/-- `zipWith xs ys h f` zips two array-like structures together into another with `f : elem₁ → elem → elem₂` provided `h : ∀ i, dom₁ xs i → dom ys i`; cf. `Array.zipWith`. -/
+@[inline]
+def zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) : cont₂ :=
+  mapIdxElem xs fun (i : idx) hi e => f e (ys[i]'(hdom i hi))
+
+theorem dom_zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) {i : idx} : dom₁ xs i → dom₂ (zipWith xs ys hdom f) i :=
+  dom_mapIdxElem xs (fun (i : idx) hi e => f e (ys[i]'(hdom i hi))) i
+
+theorem get_zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) (i : idx) (hi : dom₁ xs i) : (zipWith xs ys hdom f : cont₂)[i]'(dom_zipWith xs ys hdom f hi) = f (xs[i]'hi) (ys[i]'(hdom i hi)) :=
+  get_mapIdxElem xs (fun (i : idx) hi e => f e (ys[i]'(hdom i hi))) i hi
+
+end ZipWith
+
+end MapIdxElem
+

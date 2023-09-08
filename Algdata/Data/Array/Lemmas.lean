@@ -42,10 +42,47 @@ In view of performance, construction based on `Array.push` is preferred.
 def cons (a : α) (as : Array α) : Array α :=
   ⟨a :: as.data⟩
 
+@[simp]
+theorem size_cons (a : α) (as : Array α) : Array.size (cons a as) = as.size.succ :=
+  rfl
+
+@[simp]
+theorem getElem_cons_zero {a : α} {x : Array α} : (cons a x)[0]'(x.size.zero_lt_succ) = a :=
+  rfl
+
+@[simp]
+theorem getElem_cons_succ {a : α} {x : Array α} (i : Nat) (hi : i+1 < x.size+1) : (cons a x)[i+1]'hi = x[i]'(Nat.lt_of_succ_lt_succ hi) :=
+  rfl
+
 /-- Induction step for `Array` based on `Array.empty` (aka `#[]`) and `Array.cons`. -/
 @[elab_as_elim]
-theorem cons_induction {motive : Array α → Prop} (empty : motive #[]) (cons : ∀ (a : α) (x : Array α), motive x → motive (cons a x)) (x : Array α) : motive x :=
+theorem cons_induction
+    {motive : Array α → Prop}
+    (empty : motive #[])
+    (cons : ∀ (a : α) (x : Array α), motive x → motive (cons a x))
+    (x : Array α)
+  : motive x :=
   x.rec $ List.rec empty λ a as IH => cons a ⟨as⟩ IH
+
+/-- Induction step for `Array` based on `Array.empty` (aka `#[]`) and `Array.cons`. The version takes the major premise as the first argument. -/
+@[elab_as_elim]
+theorem cons_induction_on
+    {motive : Array α → Prop}
+    (x : Array α)
+    (empty : motive #[])
+    (cons : ∀ (a : α) (x : Array α), motive x → motive (cons a x))
+  : motive x :=
+  x.cons_induction empty cons
+
+/-- Case-splitting for `Array` into `Array.empty` (aka `#[]`) and `Array.cons`. -/
+@[elab_as_elim]
+theorem cons_cases_on
+    {motive : Array α → Prop}
+    (x : Array α)
+    (empty : motive #[])
+    (cons : ∀ (a : α) (x : Array α), motive (cons a x))
+  : motive x :=
+  x.cons_induction empty fun a x _ => cons a x
 
 
 /-!
@@ -120,9 +157,6 @@ theorem push_induction {motive : Array α → Prop}
 @[simp]
 theorem size_nil : @Array.size α #[] = 0 := rfl
 
-@[simp]
-theorem size_cons (a : α) (as : List α) : Array.size {data := a::as} = (Array.size {data := as}).succ := rfl
-
 theorem size_eq_length_of_data (x : Array α) : x.size = x.data.length := rfl
 
 
@@ -188,7 +222,7 @@ theorem mapM_empty (f : α → m β) : mapM f #[] = pure #[] :=
   rfl
 
 theorem mapM.map_cons_succ [LawfulMonad m] (f : α → m β) (a : α) (x : Array α) (i : Nat) (b : β) (y : Array β) : Array.mapM.map f (cons a x) (i+1) (cons b y) = (Array.mapM.map f x i y >>= λ y => pure (cons b y)) := by
-  unfold map; dsimp [cons]
+  unfold map; simp only [size_cons]
   if h : i < x.size then
     rw [dif_pos (Nat.succ_lt_succ h), dif_pos h, bind_assoc]
     apply bind_congr; intro b'
@@ -201,7 +235,7 @@ termination_by _ => x.size-i
 theorem mapM_cons [LawfulMonad m] (f : α → m β) (a : α) (x : Array α) : mapM f (cons a x) = (f a >>= λ b => mapM f x >>= λ y => pure (cons b y)) := by
   unfold mapM
   conv =>
-    lhs; unfold mapM.map; dsimp [cons]
+    lhs; unfold mapM.map; simp only [size_cons]
     rw [dif_pos x.size.zero_lt_succ]
   apply bind_congr; intro b
   exact mapM.map_cons_succ f a x 0 b #[]
@@ -288,10 +322,28 @@ theorem mapIdx_empty (f : Fin 0 → α → β) : mapIdx #[] f = #[] :=
 theorem mapIdx_cons (a : α) (x : Array α) (f : Fin (x.size + 1) → α → β) : mapIdx (cons a x) f = cons (f ⟨0,x.size.zero_lt_succ⟩ a) (mapIdx x (f ∘ Fin.succ)) :=
   mapIdxM_cons (m:=Id) a x f
 
+/-- `Classical`-free version of `Array.size_mapIdx`. -/
 theorem size_mapIdx' (x : Array α) (f : Fin x.size → α → β) : (mapIdx x f).size = x.size :=
   f |> x.cons_induction (λ _ => rfl) λ a x IH f => by
     rw [mapIdx_cons]; dsimp [cons]
     exact congrArg Nat.succ (IH (f ∘ Fin.succ))
+
+/-- `Classical`-free version of `Array.getElem_mapIdx`. -/
+theorem getElem_mapIdx_safe
+    (x : Array α) (f : Fin x.size → α → β) (i : Nat) (hi : i < (x.mapIdx f).size)
+  : (x.mapIdx f)[i]'hi = f ⟨i, x.size_mapIdx' f ▸ hi⟩ (x[i]' (x.size_mapIdx' f ▸ hi)) := by
+  induction x using cons_induction generalizing i with
+  | empty => cases hi
+  | cons a x IH =>
+    simp only [mapIdx_cons]
+    cases i with
+    | zero => simp only [getElem_cons_zero]
+    | succ i =>
+      simp only [getElem_cons_succ]
+      have : i < x.size :=
+        Nat.lt_of_succ_lt_succ <| trans (s:=Eq) hi (size_mapIdx' ..)
+      rw [IH (f ∘ Fin.succ) i ((x.size_mapIdx' (f ∘ Fin.succ)).symm ▸ this)]
+      rfl
 
 end Map
 
@@ -336,22 +388,6 @@ theorem size_append (x y : Array α) : (x ++ y).size = x.size + y.size := by
   dsimp [size]; rw [append_data' x y]; exact List.length_append x.data y.data
 
 
-/-!
-## `Array.get` and `Array.set`
--/
-
-theorem get_cons_succ (a : α) (as : List α) (n : Fin as.length): Array.get {data := a::as} n.succ = Array.get {data := as} n := by
-  rw [Array.get, Array.get]
-  cases n
-  rfl
-
-theorem get_cons_succ' (a : α) (as : List α) (n : Nat) {h : n.succ < as.length.succ} : Array.get {data := a::as} ⟨n.succ,h⟩ = Array.get {data := as} ⟨n,Nat.lt_of_succ_lt_succ h⟩ := by
-  have : Fin.mk n.succ h = (Fin.mk n (Nat.lt_of_succ_lt_succ h)).succ := rfl
-  rw [this]
-  exact get_cons_succ a as ⟨n, Nat.lt_of_succ_lt_succ h⟩
-
-theorem set_head (a : α) (as : List α) {h : 0 < as.length.succ} (v : α) : Array.set {data := a::as} ⟨0,h⟩ v = {data := v::as} := rfl
-
 
 /-!
 ## `Array.zipWith`
@@ -374,32 +410,32 @@ theorem zipWithAux_nil_second (f : α → β → γ) (x : Array α) (n : Nat) (z
 theorem zipWith_nil_second (f : α → β → γ) (x : Array α) : Array.zipWith x #[] f = #[] :=
   zipWithAux_nil_second f x 0 #[]
 
-theorem zipWithAux_cons_cons_succ (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) (n : Nat) (z : Array γ) : Array.zipWithAux f (Array.mk (a::as)) (Array.mk (b::bs)) (n+1) z = Array.zipWithAux f (Array.mk as) (Array.mk bs) n z := by
+theorem zipWithAux_cons_cons_succ (f : α → β → γ) (a : α) (x : Array α) (b : β) (y : Array β) (n : Nat) (z : Array γ) : Array.zipWithAux f (cons a x) (cons b y) (n+1) z = Array.zipWithAux f x y n z := by
   unfold zipWithAux
   refine dite_congr (propext ⟨Nat.lt_of_succ_lt_succ,Nat.succ_lt_succ⟩) ?_ (λ _ => rfl)
   intros
   refine dite_congr (propext ⟨Nat.lt_of_succ_lt_succ,Nat.succ_lt_succ⟩) ?_ (λ _ => rfl)
   intros; dsimp
-  exact zipWithAux_cons_cons_succ f a as b bs (n+1) _
-termination_by _ => as.length - n
+  exact zipWithAux_cons_cons_succ f a x b y (n+1) _
+termination_by _ => x.size - n
 
-theorem zipWithAux_cons_cons_zero (f : α → β → γ) (a : α) (as : List α) (b : β) (bs : List β) (z : Array γ) : Array.zipWithAux f {data := a::as} {data := b::bs} 0 z = Array.zipWithAux f {data := as} {data := bs} 0 (z.push (f a b)) := by
+theorem zipWithAux_cons_cons_zero (f : α → β → γ) (a : α) (x : Array α) (b : β) (y : Array β) (z : Array γ) : Array.zipWithAux f (cons a x) (cons b y) 0 z = Array.zipWithAux f x y 0 (z.push (f a b)) := by
   conv =>
     lhs
     unfold zipWithAux; dsimp
-    rw [dif_pos as.length.zero_lt_succ, dif_pos bs.length.zero_lt_succ]
+    rw [dif_pos x.size.zero_lt_succ, dif_pos y.size.zero_lt_succ]
     rw [zipWithAux_cons_cons_succ]
 
 theorem zipWithAux_data_eq_zipWithTR_go (f : α → β → γ) (x : Array α) (y : Array β) (z : Array γ) : (zipWithAux f x y 0 z).data = List.zipWithTR.go f x.data y.data z := by
-  cases x with | mk l =>
-  cases y with | mk l' =>
-  dsimp
-  induction l generalizing l' z with
-  | nil => exact (congrArg data (zipWithAux_nil_first f _ 0 z)).trans z.toList_eq.symm
-  | cons a l IH =>
-    cases l' with
-    | nil => exact (congrArg data (zipWithAux_nil_second f _ 0 z)).trans z.toList_eq.symm
-    | cons => rw [zipWithAux_cons_cons_zero]; exact IH _ _
+  induction x using cons_induction generalizing y z with
+  | empty =>
+    rw [zipWithAux_nil_first]; exact z.toList_eq.symm
+  | cons a x IH =>
+    cases y using cons_cases_on with
+    | empty =>
+      rw [zipWithAux_nil_second]; exact z.toList_eq.symm
+    | cons b y =>
+      rw [zipWithAux_cons_cons_zero]; exact IH _ _
 
 theorem zipWith_data_eq_zipWith_data (f : α → β → γ) (x : Array α) (y : Array β) : (zipWith x y f).data = List.zipWith f x.data y.data := by
   show (zipWithAux f x y 0 #[]).data = List.zipWith f x.data y.data

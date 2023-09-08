@@ -10,15 +10,22 @@ import Algdata.Tactic.PkgLocal
 import Algdata.Init.Fin
 import Algdata.Init.LawfulLT
 
-set_option autoImplicit false
-
 pkg_include Nat.min_zero', min_succ_succ'
+
+/-!
+# Auxiliary declaration about `List`
+-/
+
+-- Disable auto-binding of unbounded variables
+set_option autoImplicit false
 
 namespace List
 
 universe u v w
 variable {α : Type u} {β : Type v} {γ : Type w}
 
+
+/-! ### Lemmas about the functions in the core library -/
 @[pkg_local]
 private theorem get_congr {x y : List α} {i : Fin x.length} {j : Fin y.length} : x = y → i.val = j.val → get x i = get y j
 | rfl, h => by rw [Fin.eq_of_val_eq h]
@@ -98,6 +105,58 @@ private theorem bind_map_binary_eq_map_bind_map (f : α → β → γ) (as : Lis
     rw [cons_bind, map, cons_bind]
     rw [hi]
 
+
+/-! ### Variant of `mapIdx` -/
+
+/-- A variant of `List.mapIdx`; the version uses mapping with indices of type `Fin l.length` instead of `Nat`. -/
+@[inline]
+def mapIdx' (as : List α) (f : Fin as.length → α → β) : List β :=
+  go as #[] rfl where
+    /-- Auxiliary for `mapIdx`:
+    `mapIdx.go [a₀, a₁, ...] acc = acc.toList ++ [f acc.size a₀, f (acc.size + 1) a₁, ...]` -/
+    @[specialize] go : (l : List α) → (acc : Array β) → l.length + acc.size = as.length → List β
+    | [], acc, _ => acc.toList
+    | a :: tl, acc, h =>
+      have : acc.size < as.length :=
+        calc acc.size
+          _ < (tl.length + 1) + acc.size := Nat.lt_add_of_pos_left tl.length.zero_lt_succ
+          _ = as.length := h
+      go tl (acc.push (f ⟨acc.size, this⟩ a)) $ by
+        rw [Array.size_push, ← h, length_cons, Nat.succ_add]
+        rfl
+
+theorem mapIdx'_nil (f : Fin 0 → α → β) : mapIdx' [] f = [] :=
+  rfl
+
+theorem mapIdx'_cons (a : α) (as : List α) (f : Fin (as.length + 1) → α → β) : mapIdx' (a :: as) f = f ⟨0, as.length.zero_lt_succ⟩ a :: mapIdx' as (f ∘ Fin.succ) := by
+  suffices ∀ (l : List α) (b : β) (acc : Array β) (h : l.length + (acc.size + 1) = as.length + 1), mapIdx'.go (a :: as) f l ⟨b :: acc.data⟩ h = b :: mapIdx'.go as (f ∘ Fin.succ) l acc (Nat.succ.inj h)
+  by
+    dsimp [mapIdx', mapIdx'.go, Array.push, concat]
+    exact this as _ #[] _
+  intros l b acc h
+  induction l generalizing acc with
+  | nil => dsimp [mapIdx'.go]; simp only [Array.toList_eq]
+  | cons a' tl IH =>
+    dsimp [mapIdx'.go, Array.push, concat]
+    exact IH (acc.push (f _ a')) _
+
+theorem length_mapIdx' (as : List α) (f : Fin as.length → α → β) : (as.mapIdx' f).length = as.length :=
+  f |> as.rec (fun _ => rfl) fun a as IH f => by
+    simp only [mapIdx'_cons, length, IH]
+
+theorem getElem_mapIdx'
+    (as : List α) (f : Fin as.length → α → β) (i : Nat) (hi : i < (as.mapIdx' f).length)
+  : (as.mapIdx' f)[i]'hi = f ⟨i, as.length_mapIdx' f ▸ hi⟩ (as[i]'(as.length_mapIdx' f ▸ hi)) := by
+  induction as generalizing i with
+  | nil => cases hi
+  | cons a as IH =>
+    simp only [mapIdx'_cons]
+    cases i with
+    | zero => rfl
+    | succ i => simp only [cons_getElem_succ, IH]; rfl
+
+
+/-! ### Lexicographical strict order on `List` -/
 
 --- Lexicographical lift of relations
 protected
