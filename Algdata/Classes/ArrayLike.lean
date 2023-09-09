@@ -160,19 +160,14 @@ end FaithfulGetElem
 
 /-- `Array cont idx elem domGet domSet ` asserts that `cont` is an array-like type with indices of type `idx` and elements of type `elem` with read/write index validators being `domGet` and `domSet` respectively. Major instances include `List` and `Array`. -/
 class ArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGet : outParam (cont → idx → Prop)) (domSet : outParam (cont → idx → elem → Prop)) extends GetElem cont idx elem domGet, SetElem cont idx elem domSet where
-  /-- A valid index for write access must be always valid for read access too. -/
-  dom_imp {xs : cont} {i : idx} : ∀ {e : elem}, domSet xs i e → domGet xs i :=
-    by intros; trivial
-  /-- Every entry in the structure `xs` must be settable in the same index. -/
-  dom_get {xs : cont} {i : idx} (hi : domGet xs i) : domSet xs i (xs[i]'hi)
-  /-- `j : idx` is a valid index for `xs{i ≔ e}` as soon as it is for `xs`; it is the converse to `ArrayLike.noexpand`. -/
-  noshrink {xs : cont} {i : idx} {e : elem} {h : domSet xs i e} {j : idx} : domGet xs j → domGet xs{i ≔ e ∵ h} j
+  /-- An index is valid for read access after write. -/
+  dom_set {xs : cont} {i : idx} : ∀ {e : elem}, (h : domSet xs i e) → domGet xs{i ≔ e ∵ h} i
   /-- `j : idx` is a valid index for `xs` provides it is for `xs{i ≔ e}`; it is the converse to `ArrayLike.noshrink`. -/
-  noexpand {xs : cont} {i : idx} {e : elem} {h : domSet xs i e} {j : idx} : domGet xs{i ≔ e ∵ h} j → domGet xs j
+  set_noexpand {xs : cont} {i : idx} {e : elem} {h : domSet xs i e} {j : idx} : domGet xs{i ≔ e ∵ h} j → domGet xs j
   /-- cf `List.get_set_eq` and `Array.get_set_eq`. -/
-  get_set_eq (xs : cont) (i : idx) (e : elem) {h : domSet xs i e} : xs{i ≔ e ∵ h}[i]'(noshrink <| dom_imp h) = e
+  get_set_eq (xs : cont) (i : idx) (e : elem) {h : domSet xs i e} : xs{i ≔ e ∵ h}[i]'(dom_set h) = e
   /-- cf `List.get_set_ne` and `Array.get_set_ne`. -/
-  get_set_ne (xs : cont) {i j : idx} (h : i ≠ j) (e : elem) {hi : domSet xs i e} (hj : domGet xs j) : xs{i ≔ e ∵ hi}[j]'(noshrink hj) = xs[j]'(hj)
+  get_set_ne (xs : cont) {i j : idx} (h : i ≠ j) (e : elem) {hi : domSet xs i e} (hj : domGet xs{i ≔ e ∵ hi} j) : xs{i ≔ e ∵ hi}[j]'hj = xs[j]'(set_noexpand hj)
   /-- `modify f i xs hf` modifies the `i`-th entry of `xs` with the update function `f` with consistency proof `hf`. -/
   modify (xs : cont) (i : idx) (hi : domGet xs i) (f : elem → elem) (hf : domSet xs i (f (xs[i]'hi))) : cont :=
     xs{i ≔ f (xs[i]'hi) ∵ hf}
@@ -180,18 +175,16 @@ class ArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGe
 
 
 instance (α : Type u) : ArrayLike (Array α) Nat α (fun as i => i < as.size) (fun as i _ => i < as.size) where
-  dom_get := id
-  noshrink {as i a h _} hj := trans (s:=Eq) hj (as.size_set ⟨i,h⟩ a).symm
-  noexpand {as i a h j} hj := trans hj (as.size_setElem i a)
+  dom_set {as i a} h := trans (s:=Eq) h (as.size_set ⟨i,h⟩ a).symm
+  set_noexpand {as i a _ _} hj := trans hj (as.size_setElem i a)
   get_set_eq as i a {h} := as.get_set_eq ⟨i,h⟩ a
-  get_set_ne as i _ h a hi hj := as.get_set_ne ⟨i,hi⟩ a hj h
+  get_set_ne as i _ h a hi hj := as.get_set_ne ⟨i,hi⟩ a (as.size_setElem i a ▸ hj) h
   modify as i _ f _ := as.modify i f
   modify_eq {xs i hi f _} := xs.modify_eq_set_get i f hi
 
 instance instArrayLikeListNat (α : Type u) : ArrayLike (List α) Nat α (fun l i => i < l.length) (fun l i _ => i < l.length) where
-  dom_get := id
-  noshrink {l i a _ _} hj := trans hj (l.length_set i a).symm
-  noexpand {l i a hi j} hj := trans hj (l.length_set i a)
+  dom_set {l i a} h := trans h (l.length_set i a).symm
+  set_noexpand {l i a hi j} hj := trans hj (l.length_set i a)
   get_set_eq l i a {h} := l.get_set_eq i a (l.length_set i a ▸ h)
   get_set_ne l i _ h a _ hj := l.get_set_ne h a (l.length_set i a ▸ hj)
 
@@ -200,7 +193,7 @@ namespace ArrayLike
 variable {cont : Type u} {idx : Type v} {elem : Type w} {domGet : cont → idx → Prop} {domSet : cont → idx → elem → Prop}
 variable [ArrayLike cont idx elem domGet domSet]
 
-theorem get_set_ite [DecidableEq idx] (xs : cont) (i j : idx) (e : elem) {hi : domSet xs i e} {hj : domGet xs j} : xs{i ≔ e ∵ hi}[j]'(noshrink hj) = if i = j then e else xs[j]'hj := by
+theorem get_set_ite [DecidableEq idx] (xs : cont) (i j : idx) (e : elem) {hi : domSet xs i e} {hj : domGet xs{i ≔ e ∵ hi} j} : xs{i ≔ e ∵ hi}[j]'hj = if i = j then e else xs[j]'(set_noexpand hj) := by
   if h : i = j then
     cases h
     exact Eq.trans (get_set_eq xs i e) (if_pos rfl).symm
@@ -222,19 +215,18 @@ It is implemented as a special case of `ArrayLike` as
 ```lean
 ArrayLike cont idx elem (fun i _ => domGet i) (fun i _ e => domSet i e)
 ```
-Thanks to the independency, the `ArrayLike.noshrink` field is filled automatically.
+Thanks to the independency, the `ArrayLike.set_noexpand` field is filled automatically.
 -/
 class SizedArrayLike (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (domGet : outParam (idx → Prop)) (domSet : outParam (idx → elem → Prop)) extends ArrayLike cont idx elem (fun _ => domGet) (fun _ => domSet) where
-  noshrink := id
-  noexpand := id
+  set_noexpand := id
 
 instance (α : Type u) (n : Nat) : SizedArrayLike (SizedArray α n) Nat α (· < n) (fun i _ => i < n) where
-  dom_get := id
+  dom_set := id
   setElem arr i a h := arr.set ⟨i,h⟩ a
   get_set_eq arr i a h := arr.get_set_eq ⟨i,h⟩ a
   get_set_ne arr i _ h a hi hj := arr.get_set_ne ⟨i,hi⟩ a hj h
   modify arr i hi f _ := arr.modify ⟨i,hi⟩ f
-  modify_eq {arr i hi f _} := rfl
+  modify_eq := rfl
 
 
 namespace SizedArrayLike
@@ -325,30 +317,57 @@ class MapIdxElem
   where
   /-- `MapElem.mapElem f xs`, or `f <$>ₑ xs`, maps `xs` into another structure with the same indexing type and elements `f xs[i]`; cf. `Functor.map`. -/
   mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) : cont₂
-  dom_mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) : ∀ (i : idx), dom₁ xs i → dom₂ (mapIdxElem xs f) i
-  get_mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) (i : idx) (hi : dom₁ xs i) : (mapIdxElem xs f)[i]'(dom_mapIdxElem xs f i hi) = f i hi (xs[i]'hi)
+  /-- `MapIdxElem.mapIdxElem` does not add any new valid indices; this together with `MapIdxElem.noshrink` assures that the set of valid indices is stable (see also `MapIdxElem.dom_iff`). -/
+  noexpand (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) : ∀ (i : idx), dom₂ (mapIdxElem xs f) i → dom₁ xs i
+  get_mapIdxElem (xs : cont₁) (f : (i : idx) → dom₁ xs i → elem₁ → elem₂) (i : idx) (hi : dom₂ (mapIdxElem xs f) i) : (mapIdxElem xs f)[i]'(hi) = f i (noexpand xs f i hi) (xs[i]'(noexpand xs f i hi))
 
 @[inherit_doc] infixr:100 " <$>ₑ " => MapIdxElem.mapIdxElem
 
 instance instMapElemArrayNat (α : Type u₁) (β : Type u₂) : MapIdxElem (Array α) (Array β) Nat where
   mapIdxElem arr f := arr.mapIdx fun i => f i.1 i.2
-  dom_mapIdxElem arr f _ hi := arr.size_mapIdx' (fun i => f i.1 i.2) ▸ hi
-  get_mapIdxElem arr f i hi :=
-    arr.getElem_mapIdx_safe _ i <| by
-      rw [arr.size_mapIdx' (fun i => f i.1 i.2)]; exact hi
+  noexpand arr f _ hi := arr.size_mapIdx' (fun i => f i.1 i.2) ▸ hi
+  get_mapIdxElem arr _ i hi :=
+    arr.getElem_mapIdx_safe _ i hi
 
 instance instMapElemListNat (α : Type u₁) (β : Type u₂) : MapIdxElem (List α) (List β) Nat where
   mapIdxElem l f := List.mapIdx' l (fun i => f i.1 i.2)
-  dom_mapIdxElem l _ _ hi := l.length_mapIdx' _ ▸ hi
+  noexpand l _ _ hi := l.length_mapIdx' _ ▸ hi
   get_mapIdxElem l _ _ _ := l.getElem_mapIdx' _ _ _
 
 instance instMapElemSizedArrayNat (α : Type u₁) (β : Type u₂) (n : Nat) : MapIdxElem (SizedArray α n) (SizedArray β n) Nat where
   mapIdxElem arr f := arr.mapIdx fun i => f i.1 i.2
-  dom_mapIdxElem _ _ _ hi := hi
+  noexpand _ _ _ hi := hi
   get_mapIdxElem arr _ i _ := arr.get_mapIdx _ i
 
 
 namespace MapIdxElem
+
+section Basic
+
+variable
+  {cont₁ : Type u₁} {cont₂ : Type u₂} {idx : Type v} {elem₁ : Type w₁} {elem₂ : Type w₂}
+  {dom₁ : cont₁ → idx → Prop} {dom₂ : cont₂ → idx → Prop}
+  [GetElem cont₁ idx elem₁ dom₁] [GetElem cont₂ idx elem₂ dom₂]
+  [MapIdxElem cont₁ cont₂ idx]
+
+variable (idx) in
+/--
+Non-index dependent version of mapping. This version takes an unary operator and a structure reversely in contrast to `mapIdxElem` to follow the same manner as `Functor.map`.
+
+:::note info
+This function requires users to specify the indexing type in its first argument since none of the arguments determine it.
+:::
+-/
+def map (f : elem₁ → elem₂) (xs : cont₁) : cont₂ :=
+  mapIdxElem (idx:=idx) xs fun _ _ => f
+
+theorem get_map
+    (f : elem₁ → elem₂) (xs : cont₁) (i : idx) (hi : dom₂ (map idx f xs) i)
+  : (map idx f xs)[i]'hi = f (xs[i]'(noexpand xs _ i hi)) :=
+  get_mapIdxElem xs (fun _ _ => f) i hi
+
+end Basic
+
 
 section ZipWith
 
@@ -365,10 +384,13 @@ variable [GetElem cont idx elem dom]
 def zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) : cont₂ :=
   mapIdxElem xs fun (i : idx) hi e => f e (ys[i]'(hdom i hi))
 
-theorem dom_zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) {i : idx} : dom₁ xs i → dom₂ (zipWith xs ys hdom f) i :=
-  dom_mapIdxElem xs (fun (i : idx) hi e => f e (ys[i]'(hdom i hi))) i
+theorem zipWith_noexpand_left {xs : cont₁} {ys : cont} {hdom : ∀ (i : idx), dom₁ xs i → dom ys i} {f : elem₁ → elem → elem₂} {i : idx} : dom₂ (zipWith xs ys hdom f) i → dom₁ xs i :=
+  noexpand xs (fun (i : idx) hi e => f e (ys[i]'(hdom i hi))) i
 
-theorem get_zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) (i : idx) (hi : dom₁ xs i) : (zipWith xs ys hdom f : cont₂)[i]'(dom_zipWith xs ys hdom f hi) = f (xs[i]'hi) (ys[i]'(hdom i hi)) :=
+theorem zipWith_noexpand_right {xs : cont₁} {ys : cont} {hdom : ∀ (i : idx), dom₁ xs i → dom ys i} {f : elem₁ → elem → elem₂} {i : idx} : dom₂ (zipWith xs ys hdom f) i → dom ys i :=
+  hdom i ∘ zipWith_noexpand_left
+
+theorem get_zipWith (xs : cont₁) (ys : cont) (hdom : ∀ (i : idx), dom₁ xs i → dom ys i) (f : elem₁ → elem → elem₂) (i : idx) (hi : dom₂ (zipWith xs ys hdom f) i) : (zipWith xs ys hdom f : cont₂)[i]'hi = f (xs[i]'(zipWith_noexpand_left hi)) (ys[i]'(zipWith_noexpand_right hi)) :=
   get_mapIdxElem xs (fun (i : idx) hi e => f e (ys[i]'(hdom i hi))) i hi
 
 end ZipWith
