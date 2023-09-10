@@ -291,6 +291,7 @@ theorem get_ofFn_go (f : Fin len → elem) (i j : Nat) (hi : i < len) (x : cont)
     exact False.elim <| Nat.le_lt_antisymm this hi
 termination_by _ => len - j
 
+@[simp]
 theorem get_ofFn [Inhabited cont] (f : Fin len → elem) (i : Nat) {hi : i < len} : (ofFn cont f)[i]'hi = f ⟨i,hi⟩ :=
   (get_ofFn_go f i 0 hi (default : cont)).1 i.zero_le
 
