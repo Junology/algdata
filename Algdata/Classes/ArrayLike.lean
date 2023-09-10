@@ -361,9 +361,14 @@ This function requires users to specify the indexing type in its first argument 
 def map (f : elem₁ → elem₂) (xs : cont₁) : cont₂ :=
   mapIdxElem (idx:=idx) xs fun _ _ => f
 
+theorem map_noexpand
+    (f : elem₁ → elem₂) (xs : cont₁) (i : idx) (hi : dom₂ (map idx f xs) i)
+  : dom₁ xs i :=
+  noexpand xs (fun _ _ => f) i hi
+
 theorem get_map
     (f : elem₁ → elem₂) (xs : cont₁) (i : idx) (hi : dom₂ (map idx f xs) i)
-  : (map idx f xs)[i]'hi = f (xs[i]'(noexpand xs _ i hi)) :=
+  : (map idx f xs)[i]'hi = f (xs[i]'(map_noexpand f xs i hi)) :=
   get_mapIdxElem xs (fun _ _ => f) i hi
 
 end Basic
