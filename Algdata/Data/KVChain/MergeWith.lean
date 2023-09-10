@@ -161,7 +161,7 @@ theorem boundLeft_insertWithAux_fst {xs : KVChain (flip r) β} {ys : KVChain r �
     intro a₁ b₁ ys ha₁ys h_ind xs ha₁xs haxs
     apply dite (r a₁ a) <;> intro ha₁a
     . rw [insertWithAux_cons_rel ha₁a]
-      exact h_ind _ (cons_hingeable.symm ▸ ha₁ys) (by dsimp; exact ha₁a)
+      exact h_ind _ (cons_hingeable.symm ▸ ha₁ys) (by exact ha₁a)
     . apply dite (r a a₁) <;> intro haa₁
       . rw [insertWithAux_cons_flip haa₁]
         exact hac
@@ -322,7 +322,6 @@ theorem boundLeft_mergeWith (d : α) {xs ys : KVChain r β} : xs.boundLeft d →
           rw [insertWithAux_cons_rfl]
           cases f a₂ b₁ b₂ <;> dsimp
           case none =>
-            dsimp [List.reverseAux]
             apply h_ind_ys
             . exact boundLeft_descend (λ _=> trans hda₂) ha₁xs
             . exact boundLeft_descend (λ _=> trans hda₁) ha₂ys
@@ -462,7 +461,6 @@ theorem rklex_mergeWith_right {s : (a : α) → β a → β a → Prop} {f : (a 
           exact KVChain.rklex.headSnd $ hsf_right _ _ _
         )
         (λ a₁ a₂ b₁ b₂ xs ys haxs hays ha₂a₁=> by
-          dsimp
           apply dite (r z₁ a₂) <;> intro hz₁a₂
           . rw [cons_mergeWith_cons_flip hz₁a₂]
             rw [cons_mergeWith_cons_flip (trans hz₁a₂ ha₂a₁)]

@@ -243,7 +243,7 @@ theorem reelL [Trans r r r] {as : List α} {b : α} {bs : List α} : HookedAscen
   intro hhook
   have hlt := hhook.fst_lt_snd
   rw [List.forAllRel_cons_right] at hlt
-  constructor <;> simp
+  constructor
   case fst_lt_snd =>
     constructor
     case left => exact hhook.snd_Ascending.forAll_of_tail
@@ -262,7 +262,7 @@ theorem substToL [Trans r r r] {eqv : α → α → Prop} [Trans eqv r r] [Trans
   intro hab hba hhook
   have hlt := hhook.fst_lt_snd
   rw [List.forAllRel_cons_right] at hlt
-  constructor <;> simp
+  constructor
   case fst_lt_snd =>
     constructor
     case left =>

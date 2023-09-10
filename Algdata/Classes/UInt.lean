@@ -813,7 +813,6 @@ theorem ctz_eq_ctz' [DecidableEq α] : ∀ (a : α), UInt.ctz a = UInt.ctz' a :=
   case zero => dsimp [Nat.fold]; rw [UInt.shiftLeft_zero]
   case succ n h_ind =>
     dsimp [Nat.fold]
-    simp only [h_ind]
     have : n < length α := Nat.lt_of_succ_lt ‹n.succ < length α›
     simp only [h_ind x y this]
     suffices y <<< OfNat.ofNat n <<< 1 = y <<< OfNat.ofNat (n+1)
