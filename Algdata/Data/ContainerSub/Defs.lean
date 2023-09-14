@@ -94,18 +94,17 @@ end
 
 section
 
-variable [ArrayLike V ι α dom domSet]
+variable [ArrayLike V ι α dom domSet] [DecidableEq ι]
 
 /-- The side condition for `SetElem` instance. -/
 abbrev DomSet [SetElem V ι α domSet] (xs : ContainerSub V p) (i : ι) (a : α) : Prop :=
   domSet xs.val i a ∧ p i a  
 
-variable [ArrayLike V ι α dom domSet]
 instance instArrayLike : ArrayLike (ContainerSub V p) ι α DomGet DomSet where
   setElem xs i a hi :=
     .mk (xs.val{i ≔ a ∵ hi.1}) fun j hj => by
       if h : i = j then
-        cases h; simp only [ArrayLike.get_set_eq]; exact hi.2
+        cases h; rw [ArrayLike.get_set_eq (cont:=V) (h:=hi.1)]; exact hi.2
       else
         rw [ArrayLike.get_set_ne xs.val h]
         exact xs.property j (ArrayLike.set_noexpand (xs:=xs.val) hj)
@@ -121,7 +120,10 @@ instance instArrayLike : ArrayLike (ContainerSub V p) ι α DomGet DomSet where
       else
         rw [ArrayLike.get_set_ne xs.val h _ hj]
         exact xs.property j <| ArrayLike.set_noexpand (xs:=xs.val) hj
-  modify_eq {xs i hi f hf} := Subtype.eq $ ArrayLike.modify_eq (xs:=xs.val)
+  modify_eq {xs i hi f hf} :=
+    Subtype.eq $ ArrayLike.modify_eq (xs:=xs.val)
+
+#print axioms instArrayLike
 
 end
 
@@ -191,6 +193,8 @@ theorem get_map
   : (map f xs hf)[i]'hi = f (xs[i]'(map_noexpand f xs hf i hi)) :=
   MapIdxElem.get_map f xs.val i hi
 
+#print axioms get_map
+
 end Map
 
 
@@ -254,6 +258,8 @@ theorem get_zipWith
     (i : ι) (hi : DomGet (zipWith xs ys hdom f hf : ContainerSub W r) i)
   : (zipWith xs ys hdom f hf)[i]'hi = f (xs[i]'(zipWith_noexpand_left xs ys hdom f hf i hi)) (ys[i]'(zipWith_noexpand_right xs ys hdom f hf i hi)) :=
   MapIdxElem.get_zipWith xs.val ys.val hdom f i hi
+
+#print axioms get_zipWith
 
 end ZipWith
 
