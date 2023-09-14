@@ -99,11 +99,26 @@ theorem foldAllM.loop_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : 
     rw [h_ind]
     rfl
 
+theorem foldAllM_loop_succ' {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type u} {n : Nat} {f : Fin (n+1) → α → m α} {i : Nat} {a : α} {k : Nat} {h : i + (k+1) = n+1}
+  : Fin.foldAllM.loop f i a (k+1) h = (Fin.foldAllM.loop (f ∘ Fin.castSucc) i a k (Nat.succ.inj h)) >>= f ⟨n,n.lt_succ_self⟩  := by
+  induction k generalizing a i with
+  | zero => dsimp [Fin.foldAllM.loop]; cases h; simp only [pure_bind, bind_pure]
+  | succ k IH =>
+    conv =>
+      lhs; unfold Fin.foldAllM.loop; dsimp
+      rhs; ext; rw [@IH (i+1) _ (i.succ_add (k+1) ▸ h)]
+    simp only [← bind_assoc]
+    rfl
+
 theorem foldAllM_zero {m : Type u → Type v} [Monad m] {α : Type u} {init : α} {f : Fin 0 → α → m α} : Fin.foldAllM f init = pure (f:=m) init :=
   rfl
 
-theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f 0 init >>= Fin.foldAllM (f ∘ Fin.succ) := by
-  unfold foldAllM; exact Fin.foldAllM.loop_succ
+theorem foldAllM_succ {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat} {init : α} {f : Fin n.succ → α → m α} : Fin.foldAllM f init = f 0 init >>= Fin.foldAllM (f ∘ Fin.succ) :=
+  Fin.foldAllM.loop_succ
+
+theorem foldAllM_succ' {m : Type u → Type v} [Monad m] [LawfulMonad m] {α : Type u} {n : Nat} {init : α} {f : Fin (n+1) → α → m α}
+  : Fin.foldAllM f init = (Fin.foldAllM (f ∘ Fin.castSucc) init) >>= f ⟨n,n.lt_succ_self⟩ :=
+  Fin.foldAllM_loop_succ'
 
 @[simp]
 theorem foldAll_zero {α : Type u} {f : Fin 0 → α → α} {init : α} : Fin.foldAll f init = init :=
@@ -125,6 +140,30 @@ theorem foldAllM_comp_val {m : Type u → Type v} [Monad m] {n : Nat} {α : Type
 
 theorem foldAll_comp_val {n : Nat} {α : Type u} {f : Nat → α → α} {init : α} : foldAll (n:=n) (f ∘ Fin.val) init = Nat.fold f n init := by
   unfold foldAll; rw [Nat.fold_eq_foldM, foldAllM_comp_val]; rfl
+
+/--
+Induction principle to prove propositions about the value constructed by `Fin.foldAll` function.
+Namely, aiming at `motive n (Fin.foldAll f init)` for `f : Fin n → α → α` and `init : α`, the induction goes as follows:
+
+* as the base case, prove `motive 0 init`;
+* as the induction step, prove `motive (i + 1) (f i x)` with induction hyp `motive i x`
+-/
+theorem foldAll_induction
+    {n : Nat} {α : Type u}
+    {motive : Nat → α → Prop}
+    (f : Fin n → α → α) (init : α)
+    (h0 : motive 0 init)
+    (hf : (i : Fin n) → (x : α) → motive i.1 x → motive (i.1+1) (f i x))
+  : motive n (Fin.foldAll f init) := by
+  induction n generalizing init with
+  | zero => exact h0
+  | succ n IH =>
+    dsimp [foldAll]
+    rw [Fin.foldAllM_succ' (m:=Id)]
+    refine hf ⟨n,n.lt_succ_self⟩ _ ?_
+    refine IH _ init h0 ?_
+    intro i x H
+    exact hf ⟨i.1, .step i.2⟩ x H
 
 protected
 def elementList : (n : Nat) → List (Fin n)

@@ -200,6 +200,54 @@ theorem get_set_ite [DecidableEq idx] (xs : cont) (i j : idx) (e : elem) {hi : d
   else
     exact Eq.trans (get_set_ne xs h e hj) (if_neg h).symm
 
+
+section MapIdx
+
+variable
+  {cont : Type u} {elem : Type w} {n : Nat}
+  [ArrayLike cont Nat elem (fun _ i => i < n) (fun _ i _ => i < n)]
+
+/--
+The standard implementation of `mapIdx` using `getElem` and `setElem`.
+This implementation may be inefficient for some containers; for more specialized one, see `MapIdxElem` class.
+-/
+@[inline]
+def mapIdx (xs : cont) (f : Fin n → elem → elem) : cont :=
+    xs |> Fin.foldAll (n:=n) fun i xs' => xs'{i.1 ≔ f i xs'[i.1]}
+
+theorem get_mapIdx
+    (xs : cont) (f : Fin n → elem → elem) (i : Nat) {hi : i < n}
+  : (mapIdx xs f)[i] = f ⟨i,hi⟩ xs[i] :=
+  suffices
+    ∀ (k : Fin n),
+      (k.1 < n → (mapIdx xs f)[k.1] = f k xs[k.1])
+      ∧ (k.1 ≥ n → (mapIdx xs f)[k.1] = xs[k.1])
+    from (this ⟨i,hi⟩).1 hi
+  Fin.foldAll_induction
+    (motive:=fun j ys => ∀ (k : Fin n), (k.1 < j → ys[k.1] = f k xs[k.1]) ∧ (k.1 ≥ j → ys[k.1] = xs[k.1])) _ xs
+    (fun _ => ⟨fun h => nomatch h, fun _ => rfl⟩)
+    fun j ys IH k => by
+      dsimp at *; constructor
+      . show k.1 < j.1 + 1 → _
+        intro hij
+        cases Nat.eq_or_lt_of_le (Nat.le_of_succ_le_succ hij) with
+        | inl heq =>
+          cases (Fin.eq_of_val_eq heq)
+          simp only [get_set_eq ys]
+          exact congrArg _ <| (IH j).2 .refl
+        | inr hlt =>
+          have : j.1 ≠ k.1 := Ne.symm <| Nat.ne_of_lt hlt
+          simp only [get_set_ne ys this]
+          exact (IH k).1 hlt
+      . show k.1 ≥ j.1 + 1 → _
+        intro hij
+        simp only [get_set_ne ys (Nat.ne_of_lt hij)]
+        exact (IH k).2 (Nat.le_of_succ_le hij)
+
+#print axioms get_mapIdx
+
+end MapIdx
+
 end ArrayLike
 
 
@@ -340,6 +388,13 @@ instance instMapElemSizedArrayNat (α : Type u₁) (β : Type u₂) (n : Nat) : 
   noexpand _ _ _ hi := hi
   get_mapIdxElem arr _ i _ := arr.get_mapIdx _ i
 
+instance (priority:=low) instMapIdxElemArrayLikeNatSelf
+    (cont : Type u) (elem : Type w) {n : Nat}
+    [ArrayLike cont Nat elem (fun _ i => i < n) (fun _ i _ => i < n)]
+  : MapIdxElem cont cont Nat where
+  mapIdxElem xs f := ArrayLike.mapIdx xs fun i => f i.1 i.2
+  noexpand _ _ _ hi := hi
+  get_mapIdxElem xs f i _ := ArrayLike.get_mapIdx xs (fun i => f i.1 i.2) i
 
 namespace MapIdxElem
 
