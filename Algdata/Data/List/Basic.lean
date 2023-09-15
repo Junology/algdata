@@ -7,7 +7,7 @@ import Std.Data.List.Lemmas
 
 import Algdata.Tactic.PkgLocal
 
-import Algdata.Init.Fin
+import Algdata.Data.Fin.Basic
 import Algdata.Init.LawfulLT
 
 pkg_include Nat.min_zero', min_succ_succ'

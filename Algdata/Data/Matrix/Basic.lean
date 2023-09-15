@@ -9,7 +9,7 @@ import Dijkstra.Control.Functor.Subreg
 
 import Algdata.Tactic.PkgLocal
 import Algdata.Init.Nat
-import Algdata.Init.Fin
+import Algdata.Data.Fin.Basic
 import Algdata.Init.GetElem
 import Algdata.Data.Array.Lemmas
 
