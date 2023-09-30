@@ -200,13 +200,73 @@ theorem uset_eq_set (x : SizedArray α n) {i : USize} {v : α} {h : i.toNat < n}
   rfl
 
 @[simp]
-theorem get_set_eq (x : SizedArray α n) (i : Fin n) (v : α) : (x.set i v)[i] = v :=
+theorem get_set_eq (x : SizedArray α n) (i : Fin n) (v : α) : (x.set i v)[i.1] = v :=
   Array.get_set_eq x.val _ v
+
+/-- Same as `SizedArray.get_set_eq` while this version uses `i : Fin n` as is for indexing instead of `i.val`. -/
+@[simp]
+theorem get_set_eq' (x : SizedArray α n) (i : Fin n) (v : α) : (x.set i v)[i] = v :=
+  x.get_set_eq i v
 
 theorem get_set_ne (x : SizedArray α n) (i : Fin n) {j : Nat} (v : α) (hj : j < n) (h : i.val ≠ j) : (x.set i v)[j] = x[j] :=
   Array.get_set_ne x.val _ v (x.size_eq.symm ▸ hj) h
 
+theorem get_set_ite (x : SizedArray α n) (i : Fin n) (v : α) (j : Nat) {hj : j < n} : (x.set i v)[j] = if i.1 = j then v else x[j] := by
+  if hij : i.1 = j then
+    cases hij; rw [if_pos rfl, get_set_eq]
+  else
+    rw [get_set_ne (h:=hij), if_neg hij]
+
+@[simp]
+theorem set_set_eq (x : SizedArray α n) (i : Fin n) (a b : α) : (x.set i a).set i b = x.set i b :=
+  ext _ _ fun j hj => by
+    if hij : i.1 = j then
+      cases hij; simp only [get_set_eq]
+    else
+      simp only [get_set_ne (h:=hij)]
+
+theorem set_set_comm (x : SizedArray α n) {i j : Fin n} (h : i ≠ j) (a b : α) : (x.set i a).set j b = (x.set j b).set i a :=
+  ext _ _ fun k hk => by
+    simp only [get_set_ite]
+    apply dite (j.1 = k) <;> apply dite (i.1 = k) <;> intro hik hjk
+    all_goals simp only [hik, hjk, if_pos, if_neg]
+    -- The remaining case contradicts to the assumption `h : i ≠ j`
+    cases hjk; exact absurd (Fin.eq_of_val_eq hik) h
+
 end Set
+
+
+/-! ## Declaration about `SizedArray.swap` -/
+
+section Swap
+
+variable {α : Type u} {n : Nat}
+
+/-- `SizedArray.swap x i j` swaps the `i`-th and `j`-th element of `x`; cf. `Array.swap`. -/
+@[inline]
+def swap (x : SizedArray α n) (i j : @& Fin n) : SizedArray α n := {
+  val := x.val.swap (i.cast x.size_eq.symm) (j.cast x.size_eq.symm)
+  size_eq := (x.val.size_swap _ _).symm ▸ x.size_eq
+}
+
+/-- `SizedArray.swap` can be written in terms of `get` and `set`. -/
+theorem swap_eq (x : SizedArray α n) (i j : Fin n) : x.swap i j = (x.set i x[j.1]).set j x[i.1] :=
+  SizedArray.val_inj <| by dsimp only [swap]; simp only [Array.swap_def]; rfl
+
+theorem swap_comm (x : SizedArray α n) (i j : Fin n) : x.swap i j = x.swap j i := by
+  iterate rewrite [swap_eq]
+  if hij : i = j then
+    cases hij; rfl
+  else
+    exact x.set_set_comm hij x[j.1] x[i.1]
+
+theorem get_swap_second (x : SizedArray α n) (i j : Fin n) : (x.swap i j)[j.1] = x[i.1] := by
+  rw [swap_eq, get_set_eq]
+
+theorem get_swap_first (x : SizedArray α n) (i j : Fin n) : (x.swap i j)[i.1] = x[j.1] := by
+  rw [swap_comm, get_swap_second]
+
+end Swap
 
 
 /-! ## Declaration about `SizedArray.replicate` -/
