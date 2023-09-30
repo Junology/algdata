@@ -266,6 +266,9 @@ theorem get_swap_second (x : SizedArray α n) (i j : Fin n) : (x.swap i j)[j.1] 
 theorem get_swap_first (x : SizedArray α n) (i j : Fin n) : (x.swap i j)[i.1] = x[j.1] := by
   rw [swap_comm, get_swap_second]
 
+theorem get_swap (x : SizedArray α n) (i j : Fin n) (k : Nat) {hk : k < n} : (x.swap i j)[k] = if j.1 = k then x[i.1] else if i.1 = k then x[j.1] else x[k] := by
+  rw [swap_eq, get_set_ite, get_set_ite]
+
 end Swap
 
 
