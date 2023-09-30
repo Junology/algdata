@@ -683,7 +683,7 @@ theorem modify_eq_set_get (x : SizedArray α n) (i : Fin n) (f : α → α) : x.
   rfl
 
 @[simp]
-theorem get_modify_eq (x : SizedArray α n) (i : Fin n) (f : α → α) : (x.modify i f)[i] = f x[i] :=
+theorem get_modify_eq (x : SizedArray α n) (i : Fin n) (f : α → α) : (x.modify i f)[i.1] = f x[i] :=
   show (x.set i (f x[i]))[i] = f x[i]
   from x.get_set_eq i (f x[i])
 
