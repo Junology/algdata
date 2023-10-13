@@ -630,7 +630,204 @@ theorem get_mapIdx (f : Fin n → α → β) (x : SizedArray α n) (i : Nat) {hi
 end Map
 
 
+/-! ## Declaration about `SizedArray.findIdx?` -/
+
+section FindIdx
+
+variable {α : Type u} {n : Nat}
+
+/--
+`SizedArray.findIdx x p start stop` tries to find an element of a fixed-sized array `x : SizedArray α n` with the index range `start ≤ i < stop` satsfying a `Bool`-valued predicate `p : α → Bool`, and return the first index of such elements.
+If there is no such element, then `x.findIdx p = min stop n`; hence the returned value is of type `Nat` in contrast to `Array.findIdx?`, which is of type `Option Nat`.
+Note that the last two arguments `start` and `stop` are optional; the default values are `start := 0` and `stop := n`, hence
+```lean
+example (x : SizedArray α n) (p : α → Bool)
+  : findIdx x p = findIdx x p 0 n
+  := rfl
+```
+
+Example:
+```lean
+def x := SizedArray.mk #[3,1,4,1,5] rfl
+
+#eval x.findIdx (· == 1)     -- 1
+#eval x.findIdx (· == 1) 2 5 -- 3
+#eval x.findIdx (· == 5) 0 3 -- 3
+```
+-/
+@[inline]
+def findIdx (x : SizedArray α n) (p : α → Bool) (start : Nat := 0) (stop : Nat := n) : Nat :=
+  let rec @[specialize] loop (stop : Nat) (h : stop ≤ n) (i : Nat) : Nat :=
+    if hi : i < stop then
+      have : i < n := trans hi h
+      bif p x[i] then i else loop stop h (i+1)
+    else
+      stop
+  if h : stop ≤ n then
+    loop stop h start
+  else
+    loop n .refl start
+termination_by loop stop _ i => stop - i
+
+theorem findIdx_loop_le (x : SizedArray α n) (p : α → Bool) (stop : Nat) (h : stop ≤ n) (i : Nat) : findIdx.loop x p stop h i ≤ stop := by
+  unfold findIdx.loop
+  if hi : i < stop then
+    rewrite [dif_pos hi]; dsimp
+    match p (x[i]'(trans (r:=LT.lt) (s:=LE.le) hi h)) with
+    | true => exact Nat.le_of_lt hi
+    | false => exact findIdx_loop_le x p stop h (i+1)
+  else
+    rewrite [dif_neg hi]
+    exact .refl
+termination_by _ => stop - i
+
+theorem findIdx_loop_ge (x : SizedArray α n) (p : α → Bool) (stop : Nat) (h : stop ≤ n) (i : Nat) (hi : i ≤ stop) : findIdx.loop x p stop h i ≥ i := by
+  unfold findIdx.loop
+  if hi : i < stop then
+    rewrite [dif_pos hi]; dsimp
+    match p (x[i]'(trans (r:=LT.lt) (s:=LE.le) hi h)) with
+    | true => exact Nat.le.refl
+    | false =>
+      apply Nat.le_of_succ_le
+      exact findIdx_loop_ge x p stop h (i+1) hi
+  else
+    rewrite [dif_neg hi]; assumption
+termination_by _ => stop - i
+
+theorem get_findIdx_loop (x : SizedArray α n) (p : α → Bool) (stop : Nat) (hstop : stop ≤ n) (i : Nat) (h : findIdx.loop x p stop hstop i < stop) {_ : findIdx.loop x p stop hstop i < n} : p x[findIdx.loop x p stop hstop i] = true := by
+  unfold findIdx.loop at h ⊢
+  if hi : i < stop then
+    rewrite [dif_pos hi] at h
+    rewrite [getElem_eq rfl (dif_pos hi)]
+    dsimp at *
+    if hp : p (x[i]'(trans (r:=LT.lt) (s:=LE.le) hi hstop)) = true then
+      rewrite [getElem_eq rfl (by rw [hp, cond_true])]
+      exact hp
+    else
+      have hp := Bool.eq_false_iff.mpr hp
+      rewrite [getElem_eq rfl (by rw [hp, cond_false])]
+      rewrite [hp, cond_false] at h
+      exact get_findIdx_loop x p stop hstop (i+1) h
+  else
+    rewrite [dif_neg hi] at h
+    exact absurd h stop.lt_irrefl
+termination_by _ => stop - i
+
+theorem get_findIdx_loop_of_lt (x : SizedArray α n) (p : α → Bool) (stop : Nat) (h : stop ≤ n) (i k : Nat) (hk : k ≥ i) (hk' : k < findIdx.loop x p stop h i) {_ : k < n} : p x[k] = false := by
+  have hkstop : k < stop :=
+    trans (r:=LT.lt) (s:=LE.le) hk' <| findIdx_loop_le x p stop h i
+  have histop : i < stop := trans hk hkstop
+  conv at hk' =>
+    unfold findIdx.loop; rw [dif_pos histop]; dsimp
+  match hpi : p (x[i]'(trans (r:=LT.lt) (s:=LE.le) histop h)) with
+  | true =>
+    rewrite [hpi, cond_true] at hk'
+    exact absurd hk' <| Nat.not_lt_of_le hk
+  | false =>
+    rewrite [hpi, cond_false] at hk'
+    cases Nat.eq_or_lt_of_le hk with
+    | inl heq => exact heq ▸ hpi
+    | inr hlt => exact get_findIdx_loop_of_lt x p stop h (i+1) k hlt hk'
+termination_by _ => stop - i
+
+/--
+The value of `SizedArray.findIdx` is bounded above by the size.
+If one needs boundedness by the search range `start` and `stop`, see `SizedArray.findIdx_le'` and `SizedArray.findIdx_ge`.
+-/
+theorem findIdx_le (x : SizedArray α n) (p : α → Bool) {start stop : Nat} : x.findIdx p start stop ≤ n := by
+  dsimp [findIdx]
+  if h : stop ≤ n then
+    rewrite [dif_pos h]
+    refine trans (r:=LE.le) ?_ h
+    exact findIdx_loop_le x p stop h start
+  else
+    rewrite [dif_neg h]
+    exact findIdx_loop_le x p n .refl start
+
+theorem findIdx_le' (x : SizedArray α n) (p : α → Bool) {start stop : Nat} : x.findIdx p start stop ≤ stop := by
+  dsimp [findIdx]
+  if h : stop ≤ n then
+    rewrite [dif_pos h]
+    exact findIdx_loop_le x p stop h start
+  else
+    rewrite [dif_neg h]
+    refine trans (r:=LE.le) (s:=LE.le) ?_ <| Nat.le_of_lt <| Nat.lt_of_not_le h
+    exact findIdx_loop_le x p n .refl start
+
+theorem findIdx_ge (x : SizedArray α n) (p : α → Bool) {start stop : Nat} (h : start ≤ stop) (h' : stop ≤ n) : x.findIdx p start stop ≥ start := by
+  dsimp [findIdx]
+  rewrite [dif_pos h']
+  exact findIdx_loop_ge x p stop h' start h
+
+theorem get_findIdx (x : SizedArray α n) (p : α → Bool) {start stop : Nat} (h : x.findIdx p start stop < stop) (h' : stop ≤ n := by constructor; done) {_ : x.findIdx p start stop < n} : p x[x.findIdx p start stop] = true := by
+  dsimp [findIdx] at h ⊢
+  if hstop : stop ≤ n then
+    rewrite [getElem_eq rfl (dif_pos hstop)]
+    rewrite [dif_pos hstop] at h
+    exact get_findIdx_loop x p stop h' start h
+  else
+    rewrite [getElem_eq rfl (dif_neg hstop)]
+    rewrite [dif_neg hstop] at h
+    exact get_findIdx_loop x p n .refl start <|
+      trans (r:=LT.lt) (s:=LE.le) h h'
+
+theorem get_findIdx_of_lt (x : SizedArray α n) (p : α → Bool) {start stop : Nat} (k : Nat) (hk : k ≥ start) (hk' : k < x.findIdx p start stop) {_ : k < n} : p x[k] = false := by
+  dsimp [findIdx] at hk'
+  if hstop : stop ≤ n then
+    rewrite [dif_pos hstop] at hk'
+    exact get_findIdx_loop_of_lt x p stop hstop start k hk hk'
+  else
+    rewrite [dif_neg hstop] at hk'
+    exact get_findIdx_loop_of_lt x p n .refl start k hk hk'
+
+variable [DecidableEq α]
+
+/--
+`SizedArray.getIdx x v start stop` tries to find an element `v` from a fixed-sized array `x : SizedArray α n` with the index range `start ≤ i < stop` and return the index of the first appearance if any.
+Otherwise, `x.getIdx x v start stop = min stop n`; hence the returned value is of type `Nat` in contrast to `Array.getIdx?`, which is of type `Option Nat`.
+Note that the last two arguments `start` and `stop` are optional; the default values are `start := 0` and `stop := n`, hence
+```lean
+example [DecidableEq α] (x : SizedArray α n) (v : α)
+  : getIdx x v = getIdx x v 0 n
+  := rfl
+```
+
+Example:
+```lean
+def x := SizedArray.mk #[3,1,4,1,5] rfl
+
+#eval x.getIdx 1     -- 1
+#eval x.getIdx 1 2 5 -- 3
+#eval x.getIdx 5 0 3 -- 3
+```
+-/
+def getIdx (x : SizedArray α n) (v : α) (start : Nat := 0) (stop : Nat := n): Nat :=
+  x.findIdx (· == v) start stop
+
+theorem getIdx_le (x : SizedArray α n) (v : α) {start stop : Nat} : x.getIdx v start stop ≤ n :=
+  x.findIdx_le (· == v)
+
+theorem getIdx_le' (x : SizedArray α n) (v : α) {start stop : Nat} : x.getIdx v start stop ≤ stop :=
+  x.findIdx_le' (· == v)
+
+theorem getIdx_ge (x : SizedArray α n) (v : α) {start stop : Nat} (h : start ≤ stop) (h' : stop ≤ n) : x.getIdx v start stop ≥ start :=
+  x.findIdx_ge (· == v) h h'
+
+theorem get_getIdx (x : SizedArray α n) (v : α) {start stop : Nat} (h : x.getIdx v start stop < stop) (h' : stop ≤ n := by constructor; done) {_ : x.getIdx v start stop < n} : x[x.getIdx v start stop] = v :=
+  suffices x[x.getIdx v start stop] == v
+  from of_decide_eq_true this
+  x.get_findIdx (· == v) h h'
+
+theorem get_getIdx_of_lt (x : SizedArray α n) (v : α) {start stop : Nat} (k : Nat) (hk : k ≥ start) (hk' : k < x.getIdx v start stop) {_ : k < n} : x[k] ≠ v :=
+  suffices (x[k] == v) = false
+  from of_decide_eq_false this
+  x.get_findIdx_of_lt (· == v) k hk hk'
+
+end FindIdx
+
+
 /-! ## Declaration about `SizedArray.modifyM` -/
+
 section Modify
 
 variable {m : Type u → Type v} [Monad m] {α : Type u} {n : Nat}
