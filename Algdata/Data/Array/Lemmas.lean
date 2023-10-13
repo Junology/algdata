@@ -43,6 +43,10 @@ def cons (a : α) (as : Array α) : Array α :=
   ⟨a :: as.data⟩
 
 @[simp]
+theorem data_cons (a : α) (as : Array α) : Array.data (cons a as) = a :: as.data :=
+  rfl
+
+@[simp]
 theorem size_cons (a : α) (as : Array α) : Array.size (cons a as) = as.size.succ :=
   rfl
 
@@ -88,6 +92,12 @@ theorem cons_cases_on
 /-!
 ## `Array.push` and `Array.pop`
 -/
+
+theorem push_empty_eq_cons (a : α) : push #[] a = cons a #[] :=
+  rfl
+
+theorem push_cons_eq_cons_push (a b : α) (as : Array α) : push (cons a as) b = cons a (push as b) := by
+  dsimp [push, cons, List.concat]
 
 /-- `back' as h` is the last entry of `as : Array α` with `h : as.size > 0`. In contrast to `Array.back`, this function does not require `Inhabited α` since it doesn't fail thanks to `h`. -/
 def back' (as : Array α) (h : as.size > 0) : α :=
@@ -158,6 +168,152 @@ theorem push_induction {motive : Array α → Prop}
 theorem size_nil : @Array.size α #[] = 0 := rfl
 
 theorem size_eq_length_of_data (x : Array α) : x.size = x.data.length := rfl
+
+
+/-!
+## `Array.anyM` and `Array.any`
+-/
+
+section Any
+
+variable {m : Type → Type v} [Monad m]
+
+theorem anyM_loop_empty (p : α → m Bool) {stop : Nat} (h : stop ≤ 0) (i : Nat)
+  : anyM.loop p #[] stop h i = pure false := by
+  cases h; unfold anyM.loop; rw [dif_neg i.not_lt_zero]
+
+theorem anyM_loop_cons_succ (p : α → m Bool) (a : α) (x : Array α) {stop : Nat} (h : stop ≤ x.size) (i : Nat)
+  : anyM.loop p (cons a x) (stop+1) (Nat.succ_le_succ h) (i+1) = anyM.loop p x stop h i := by
+  unfold anyM.loop
+  if hlt : i < stop then
+    rewrite [dif_pos hlt, dif_pos (Nat.succ_lt_succ hlt)]
+    apply bind_congr; intro b
+    match b with
+    | true => rfl
+    | false =>
+      simp only [if_neg]
+      exact anyM_loop_cons_succ p a x h (i+1)
+  else
+    rw [dif_neg hlt, dif_neg (fun h => hlt <| Nat.lt_of_succ_lt_succ h)]
+termination_by _ => stop - i
+
+theorem anyM_loop_cons_zero (p : α → m Bool) (a : α) (x : Array α) {stop : Nat} (h : stop ≤ x.size)
+  : anyM.loop p (cons a x) (stop+1) (Nat.succ_le_succ h) 0 = (p a >>= fun b => if b = true then return true else anyM.loop p x stop h 0) := by
+  conv =>
+    lhs; unfold anyM.loop
+    rw [dif_pos stop.zero_lt_succ]
+    simp only [getElem_cons_zero]
+  apply bind_congr; intro b
+  rw [anyM_loop_cons_succ p a x h 0]
+
+theorem anyM_empty (p : α → m Bool) {start stop : Nat} : anyM p #[] start stop = pure false := by
+  dsimp [anyM]
+  if h : stop ≤ 0 then
+    rewrite [dif_pos h]
+    exact anyM_loop_empty p h start
+  else
+    rewrite [dif_neg h]
+    exact anyM_loop_empty p .refl start
+
+theorem anyM_cons_succ (p : α → m Bool) (a : α) (x : Array α) {start stop : Nat}
+  : anyM p (cons a x) (start + 1) (stop + 1) = anyM p x start stop := by
+  dsimp [anyM]
+  if h : stop ≤ x.size then
+    rewrite [dif_pos h, dif_pos (Nat.succ_le_succ h)]
+    exact anyM_loop_cons_succ p a x h start
+  else
+    rewrite [dif_neg h, dif_neg (fun h' => h <| Nat.le_of_succ_le_succ h')]
+    exact anyM_loop_cons_succ p a x .refl start
+
+theorem anyM_cons_zero (p : α → m Bool) (a : α) (x : Array α) {stop : Nat}
+  : anyM p (cons a x) 0 (stop + 1) = (p a >>= fun b => if b = true then return true else anyM p x 0 stop) := by
+  dsimp [anyM]
+  if h : stop ≤ x.size then
+    simp only [dif_pos h, dif_pos (Nat.succ_le_succ h)]
+    exact anyM_loop_cons_zero p a x h
+  else
+    simp only [dif_neg h, dif_neg (fun h' => h <| Nat.le_of_succ_le_succ h')]
+    exact anyM_loop_cons_zero p a x .refl
+
+theorem any_empty (p : α → Bool) {start stop : Nat} : any #[] p start stop = false :=
+  anyM_empty (m:=Id) p
+
+theorem any_cons_succ (a : α) (x : Array α) (p : α → Bool) {start stop : Nat}
+  : any (cons a x) p (start + 1) (stop + 1) = any x p start stop :=
+  anyM_cons_succ (m:=Id) p a x
+
+theorem any_cons_zero (a : α) (x : Array α) (p : α → Bool) {stop : Nat}
+  : any (cons a x) p 0 (stop + 1) = (p a || any x p 0 stop) := by
+  dsimp [any, Id.run]
+  rewrite [anyM_cons_zero (m:=Id) p a x]
+  dsimp
+  match p a with
+  | true => simp only [ite_true, Bool.true_or]
+  | false => simp only [ite_false, Bool.false_or]
+
+theorem any_cons (a : α) (x : Array α) (p : α → Bool)
+  : any (cons a x) p = (p a || any x p) := by
+  rewrite [size_cons]
+  exact any_cons_zero a x p
+
+theorem any_push (x : Array α) (a : α) (p : α → Bool)
+  : any (x.push a) p = (any x p || p a) := by
+  induction x using cons_induction with
+  | empty =>
+    simp only [push_empty_eq_cons, any_cons, any_empty, Bool.or_false, Bool.false_or]
+  | cons b x IH =>
+    simp only [push_cons_eq_cons_push, any_cons, IH]
+    exact Eq.symm <| Bool.or_assoc (p b) (x.any p) (p a)
+
+theorem any_eq_any_data (x : Array α) (p : α → Bool)
+  : any x p = List.any x.data p := by
+  induction x using cons_induction with
+  | empty => rfl
+  | cons a x IH =>
+    conv => lhs; simp only [any_cons]
+    conv => rhs; simp only [data_cons, List.any_cons]
+    rw [IH]
+
+end Any
+
+/-!
+## Membreship relation
+-/
+
+section Mem
+
+variable [DecidableEq α]
+
+theorem not_mem_empty (a : α) : a ∉ (#[] : Array α) :=
+  fun h => Bool.noConfusion h
+
+theorem mem_cons {a b : α} {x : Array α} : a ∈ (cons b x) ↔ a = b ∨ a ∈ x := by
+  show any (cons b x) (a == ·) = true ↔ a = b ∨ a ∈ x 
+  rewrite [any_cons]
+  simp only [Bool.or_eq_true, beq_iff_eq]
+  exact Iff.rfl
+
+theorem mem_push {a b : α} {x : Array α} : a ∈ (push x b) ↔ a ∈ x ∨ a = b := by
+  show any (push x b) (a == ·) = true ↔ a ∈ x ∨ a = b
+  rewrite [any_push]
+  simp only [Bool.or_eq_true, beq_iff_eq]
+  exact Iff.rfl
+
+theorem mem_iff_mem_data {a : α} {x : Array α} : a ∈ x ↔ a ∈ x.data := by
+  induction x using cons_induction with
+  | empty =>
+    simp only [not_mem_empty, data_toArray, List.not_mem_nil]
+  | cons v x IH =>
+    rw [mem_cons, data_cons, List.mem_cons, IH]
+
+theorem mem_iff_get {a : α} {x : Array α} : a ∈ x ↔ ∃ (i : Nat) (hi : i < x.size), x[i] = a := by
+  rewrite [mem_iff_mem_data, List.mem_iff_get]
+  simp only [getElem_eq_data_get]
+  constructor
+  . exact fun ⟨i,hxi⟩ => ⟨i.1,i.2,hxi⟩
+  . exact fun ⟨i,hi,hxi⟩ => ⟨⟨i,hi⟩,hxi⟩
+
+end Mem
 
 
 /-!

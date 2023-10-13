@@ -181,6 +181,27 @@ theorem push_induction_on₂ {motive : (n : Nat) → SizedArray α n → SizedAr
 end Basic
 
 
+/-! ## Membership relation -/
+
+section Mem
+
+variable {α : Type u} [DecidableEq α] {n : Nat}
+
+instance membership : Membership α (SizedArray α n) where
+  mem a x := a ∈ x.val
+
+theorem mem_iff_mem_val {a : α} {x : SizedArray α n} : a ∈ x ↔ a ∈ x.val :=
+  Iff.rfl
+
+theorem mem_iff_get {a : α} (x : SizedArray α n) : a ∈ x ↔ ∃ (i : Fin n), x[i.1] = a := by
+  rewrite [mem_iff_mem_val, Array.mem_iff_get]
+  constructor
+  . exact fun ⟨i,hi,hxi⟩ => ⟨⟨i, x.size_eq.symm ▸ hi⟩, hxi⟩
+  . exact fun ⟨i,hxi⟩ => ⟨i.1, x.size_eq.symm ▸ i.2, hxi⟩
+
+end Mem
+
+
 /-! ## Declaration about `SizedArray.set` -/
 
 section Set
