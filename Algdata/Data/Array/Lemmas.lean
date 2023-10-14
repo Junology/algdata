@@ -284,6 +284,9 @@ section Mem
 
 variable [DecidableEq α]
 
+instance decidableMem (a : α) (x : Array α) : Decidable (a ∈ x) :=
+  inferInstanceAs <| Decidable (x.any (a == ·) = true)
+
 theorem not_mem_empty (a : α) : a ∉ (#[] : Array α) :=
   fun h => Bool.noConfusion h
 

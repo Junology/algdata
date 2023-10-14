@@ -190,6 +190,9 @@ variable {α : Type u} [DecidableEq α] {n : Nat}
 instance membership : Membership α (SizedArray α n) where
   mem a x := a ∈ x.val
 
+instance decidableMem (a : α) (x : SizedArray α n) : Decidable (a ∈ x) :=
+  inferInstanceAs <| Decidable (a ∈ x.val)
+
 theorem mem_iff_mem_val {a : α} {x : SizedArray α n} : a ∈ x ↔ a ∈ x.val :=
   Iff.rfl
 
