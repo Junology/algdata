@@ -807,6 +807,13 @@ theorem get_findIdx_of_lt (x : SizedArray α n) (p : α → Bool) {start stop : 
     rewrite [dif_neg hstop] at hk'
     exact get_findIdx_loop_of_lt x p n .refl start k hk hk'
 
+theorem findIdx_get_le (x : SizedArray α n) (p : α → Bool) (i : Nat) {hi : i < n} (hp : p x[i] = true) : x.findIdx p ≤ i := by
+  apply Nat.le_of_not_lt
+  intro h
+  have : p x[i] = false := get_findIdx_of_lt x p i i.zero_le h
+  rewrite [this] at hp; cases hp
+
+
 variable [DecidableEq α]
 
 /--
@@ -849,6 +856,9 @@ theorem get_getIdx_of_lt (x : SizedArray α n) (v : α) {start stop : Nat} (k : 
   suffices (x[k] == v) = false
   from of_decide_eq_false this
   x.get_findIdx_of_lt (· == v) k hk hk'
+
+theorem getIdx_get_le (x : SizedArray α n) (i : Nat) {hi : i < n} : getIdx x x[i] ≤ i :=
+  findIdx_get_le x (· == x[i]) (hi:=hi) <| beq_self_eq_true x[i]
 
 end FindIdx
 
