@@ -202,6 +202,9 @@ theorem mem_iff_get {a : α} (x : SizedArray α n) : a ∈ x ↔ ∃ (i : Fin n)
   . exact fun ⟨i,hi,hxi⟩ => ⟨⟨i, x.size_eq.symm ▸ hi⟩, hxi⟩
   . exact fun ⟨i,hxi⟩ => ⟨i.1, x.size_eq.symm ▸ i.2, hxi⟩
 
+theorem get_mem (x : SizedArray α n) (i : Nat) {hi : i < n} : x[i] ∈ x :=
+  x.mem_iff_get.mpr ⟨⟨i,hi⟩, rfl⟩
+
 end Mem
 
 
@@ -1037,6 +1040,31 @@ theorem get_pullback (f : Fin m → Fin n) (x : SizedArray α n) (i : Nat) (h : 
   get_ofFn (fun i => x[f i]) i h
 
 end Index
+
+
+/-! ## Declarations about `SizedArray.Nodup` -/
+
+section Nodup
+
+variable {α : Type u} {n : Nat} [DecidableEq α]
+
+def Nodup (x : SizedArray α n) : Prop :=
+  x.val.Nodup
+
+instance Nodup.decidable (x : SizedArray α n) : Decidable (x.Nodup) :=
+  inferInstanceAs <| Decidable x.val.Nodup
+
+theorem nodup_iff_get_inj (x : SizedArray α n) : x.Nodup ↔ ∀ (i j : Fin n), x[i.1] = x[j.1] → i = j := by
+  dsimp [Nodup]
+  rewrite [Array.nodup_iff_getElem_inj]
+  constructor
+  all_goals
+    intro h i j hxij
+    rcases i with ⟨i,hi⟩; rcases j with ⟨j,hj⟩
+    specialize h ⟨i, x.size_eq.symm ▸ hi⟩ ⟨j, x.size_eq.symm ▸ hj⟩ hxij
+    cases h; rfl
+
+end Nodup
 
 end SizedArray
 

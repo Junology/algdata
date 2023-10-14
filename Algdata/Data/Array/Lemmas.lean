@@ -11,6 +11,7 @@ import Algdata.Init.Nat
 import Algdata.Init.GetElem
 import Algdata.Data.Nat.Rec
 import Algdata.Data.List.Basic
+import Algdata.Data.Array.Basic
 
 /-!
 
@@ -29,84 +30,8 @@ pkg_include List.get_concat_length, List.dropLast_eq_take, List.get_take, List.d
 variable {α : Type u}
 
 /-!
-## Declaration about `Array.cons`
--/
-
-/--
-An `Array` counterpart of `List.cons`.
-
-:::note warning
-In view of performance, construction based on `Array.push` is preferred.
-:::
--/
-def cons (a : α) (as : Array α) : Array α :=
-  ⟨a :: as.data⟩
-
-@[simp]
-theorem data_cons (a : α) (as : Array α) : Array.data (cons a as) = a :: as.data :=
-  rfl
-
-@[simp]
-theorem size_cons (a : α) (as : Array α) : Array.size (cons a as) = as.size.succ :=
-  rfl
-
-@[simp]
-theorem getElem_cons_zero {a : α} {x : Array α} : (cons a x)[0]'(x.size.zero_lt_succ) = a :=
-  rfl
-
-@[simp]
-theorem getElem_cons_succ {a : α} {x : Array α} (i : Nat) (hi : i+1 < x.size+1) : (cons a x)[i+1]'hi = x[i]'(Nat.lt_of_succ_lt_succ hi) :=
-  rfl
-
-/-- Induction step for `Array` based on `Array.empty` (aka `#[]`) and `Array.cons`. -/
-@[elab_as_elim]
-theorem cons_induction
-    {motive : Array α → Prop}
-    (empty : motive #[])
-    (cons : ∀ (a : α) (x : Array α), motive x → motive (cons a x))
-    (x : Array α)
-  : motive x :=
-  x.rec $ List.rec empty λ a as IH => cons a ⟨as⟩ IH
-
-/-- Induction step for `Array` based on `Array.empty` (aka `#[]`) and `Array.cons`. The version takes the major premise as the first argument. -/
-@[elab_as_elim]
-theorem cons_induction_on
-    {motive : Array α → Prop}
-    (x : Array α)
-    (empty : motive #[])
-    (cons : ∀ (a : α) (x : Array α), motive x → motive (cons a x))
-  : motive x :=
-  x.cons_induction empty cons
-
-/-- Case-splitting for `Array` into `Array.empty` (aka `#[]`) and `Array.cons`. -/
-@[elab_as_elim]
-theorem cons_cases_on
-    {motive : Array α → Prop}
-    (x : Array α)
-    (empty : motive #[])
-    (cons : ∀ (a : α) (x : Array α), motive (cons a x))
-  : motive x :=
-  x.cons_induction empty fun a x _ => cons a x
-
-
-/-!
 ## `Array.push` and `Array.pop`
 -/
-
-theorem push_empty_eq_cons (a : α) : push #[] a = cons a #[] :=
-  rfl
-
-theorem push_cons_eq_cons_push (a b : α) (as : Array α) : push (cons a as) b = cons a (push as b) := by
-  dsimp [push, cons, List.concat]
-
-/-- `back' as h` is the last entry of `as : Array α` with `h : as.size > 0`. In contrast to `Array.back`, this function does not require `Inhabited α` since it doesn't fail thanks to `h`. -/
-def back' (as : Array α) (h : as.size > 0) : α :=
-  have : as.size - 1 < as.size := Nat.pred_lt' h
-  as[as.size - 1]' this
-
-/-- `Array.back'` is a counterpart of `List.getLast`. -/
-theorem back'_eq_data_getLast (as : Array α) (h : as.size > 0) : as.back' h = as.data.getLast (h |> as.casesOn λ l (h : l.length > 0) (hc : l = []) => by cases hc; cases h) := by
-  rw [List.getLast_eq_get]; rfl
 
 /-- `Classical`-free version of `Array.get_push`-/
 @[simp]
@@ -315,6 +240,9 @@ theorem mem_iff_get {a : α} {x : Array α} : a ∈ x ↔ ∃ (i : Nat) (hi : i 
   constructor
   . exact fun ⟨i,hxi⟩ => ⟨i.1,i.2,hxi⟩
   . exact fun ⟨i,hi,hxi⟩ => ⟨⟨i,hi⟩,hxi⟩
+
+theorem getElem_mem (x : Array α) (i : Nat) {hi : i < x.size} : x[i] ∈ x :=
+  mem_iff_get.mpr ⟨i,hi,rfl⟩
 
 end Mem
 
@@ -742,5 +670,57 @@ theorem foldl_ofFn_eq {α : Type u} {β : Type v} {init : β} {g : β → α →
   case zero => rfl
   case succ n h_ind =>
     rw [ofFn_succ']; dsimp [List.foldl]; rw [h_ind, Fin.foldAll_succ]; rfl
+
+
+/-!
+## `Array.Nodup`
+-/
+
+section Nodup
+
+variable [DecidableEq α]
+
+theorem nodup_iff_nodup_data {x : Array α} : x.Nodup ↔ x.data.Nodup := by
+  induction x using cons_induction with
+  | empty => simp only [nodup_empty, true_iff]; exact .nil
+  | cons a x IH =>
+    simp only [nodup_cons, data_cons]
+    dsimp [List.Nodup]; rewrite [List.pairwise_cons, IH]
+    apply and_congr_left'
+    simp only [← mem_iff_mem_data]
+    constructor
+    . intro h _ ha hcntr; cases hcntr
+      exact h ha
+    . intro h ha
+      exact h a ha rfl
+
+theorem nodup_iff_getElem_inj {x : Array α} : x.Nodup ↔ ∀ (i j : Fin x.size), x[i.1] = x[j.1] → i = j := by
+  induction x using cons_induction with
+  | empty =>
+    simp only [nodup_empty, true_iff]
+    intro i; exact i.elim0
+  | cons a x IH =>
+    rewrite [nodup_cons, IH]; clear IH
+    constructor
+    . intro h i j hxij
+      rcases i with ⟨i,hi⟩; rcases j with ⟨j,hj⟩
+      cases i <;> cases j <;> simp at hxij ⊢
+      . exfalso; apply h.1
+        rewrite [hxij]; exact getElem_mem x _
+      . exfalso; apply h.1
+        rewrite [← hxij]; exact getElem_mem x _
+      . exact Fin.val_eq_of_eq <| h.2 ⟨_, Nat.lt_of_succ_lt_succ hi⟩ ⟨_, Nat.lt_of_succ_lt_succ hj⟩ hxij
+    . intro h
+      constructor
+      . intro hmem
+        have ⟨i,hi, hxi⟩ := mem_iff_get.mp hmem
+        specialize h ⟨i+1, Nat.succ_lt_succ hi⟩ ⟨0, x.size.zero_lt_succ⟩ hxi
+        cases h
+      . intro i j
+        specialize h i.succ j.succ
+        simp only [size_cons, Fin.val_succ, getElem_cons_succ, Fin.succ_inj] at h 
+        exact h
+
+end Nodup
 
 end Array
