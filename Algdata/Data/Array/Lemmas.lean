@@ -680,6 +680,22 @@ section Nodup
 
 variable [DecidableEq α]
 
+theorem nodup_singleton (a : α) : Nodup #[a] :=
+  nodup_cons.mpr ⟨not_mem_empty a, nodup_empty⟩
+
+theorem nodup_push {x : Array α} {a : α} : Nodup (x.push a) ↔ x.Nodup ∧ a ∉ x := by
+  induction x using cons_induction with
+  | empty =>
+    simp only [nodup_empty, not_mem_empty, not_false_eq_true, and_self, iff_true]
+    exact nodup_singleton a
+  | cons b x IH =>
+    simp only [push_cons_eq_cons_push, nodup_cons, mem_push, mem_cons, IH]
+    simp only [not_or, and_assoc]
+    apply and_congr_right'
+    simp only [← and_assoc]; rewrite[and_comm (a:=x.Nodup)]
+    apply and_congr_left'; apply and_congr_left'
+    exact ⟨Ne.symm, Ne.symm⟩
+
 theorem nodup_iff_nodup_data {x : Array α} : x.Nodup ↔ x.data.Nodup := by
   induction x using cons_induction with
   | empty => simp only [nodup_empty, true_iff]; exact .nil
