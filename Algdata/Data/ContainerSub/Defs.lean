@@ -42,6 +42,10 @@ universe u u₁ u₂ u₃ v w w₁ w₂ w₃
 
 /-! ### Main definition -/
 
+/--
+For a container-like type `V` with `GetElem V ι α dom`, `ContainerSub V p` is the subtype of `V` consisting of containers `x : V` such that each element `x[i]` satisfies the (possibly index-dependent) predicate `p : ι → α → Prop`.
+Note that since the run-time representation of `Subtype q` is identical to its underlying type, there would be not performance penalty as long as the methods are properly inlined.
+-/
 def ContainerSub
     (V : Type u) {ι : Type v} {α : Type w} {dom : V → ι → Prop}
     (p : ι → α → Prop) [GetElem V ι α dom]
@@ -59,7 +63,7 @@ variable {V : Type u} {ι : Type v} {α : Type w}
 variable {dom : V → ι → Prop} {domSet : V → ι → α → Prop}
 variable {p : ι → α → Prop}
 
-section 
+section
 
 variable [GetElem V ι α dom]
 
@@ -98,7 +102,7 @@ variable [ArrayLike V ι α dom domSet] [DecidableEq ι]
 
 /-- The side condition for `SetElem` instance. -/
 abbrev DomSet [SetElem V ι α domSet] (xs : ContainerSub V p) (i : ι) (a : α) : Prop :=
-  domSet xs.val i a ∧ p i a  
+  domSet xs.val i a ∧ p i a
 
 instance instArrayLike : ArrayLike (ContainerSub V p) ι α DomGet DomSet where
   setElem xs i a hi :=
@@ -122,8 +126,6 @@ instance instArrayLike : ArrayLike (ContainerSub V p) ι α DomGet DomSet where
         exact xs.property j <| ArrayLike.set_noexpand (xs:=xs.val) hj
   modify_eq {xs i hi f hf} :=
     Subtype.eq $ ArrayLike.modify_eq (xs:=xs.val)
-
-#print axioms instArrayLike
 
 end
 
@@ -193,8 +195,6 @@ theorem get_map
   : (map f xs hf)[i]'hi = f (xs[i]'(map_noexpand f xs hf i hi)) :=
   MapIdxElem.get_map f xs.val i hi
 
-#print axioms get_map
-
 end Map
 
 
@@ -259,9 +259,6 @@ theorem get_zipWith
   : (zipWith xs ys hdom f hf)[i]'hi = f (xs[i]'(zipWith_noexpand_left xs ys hdom f hf i hi)) (ys[i]'(zipWith_noexpand_right xs ys hdom f hf i hi)) :=
   MapIdxElem.get_zipWith xs.val ys.val hdom f i hi
 
-#print axioms get_zipWith
-
 end ZipWith
 
 end ContainerSub
-
