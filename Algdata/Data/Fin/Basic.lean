@@ -19,6 +19,9 @@ pkg_include Nat.foldM_succ, Nat.fold_eq_foldM
 
 namespace Fin
 
+theorem cast_eq_subst {n m : Nat} (h : n = m) (i : Fin n) : i.cast h = h ▸ i :=
+  match h with | rfl => rfl
+
 private theorem lexfold_lt_mul {m n : Nat} (x : Fin m) (y : Fin n) : x.val * n + y.val < m*n :=
   calc
     x.val * n + y.val
