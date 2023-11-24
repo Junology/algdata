@@ -113,6 +113,17 @@ theorem back'_eq_data_getLast (as : Array α) (h : as.size > 0) : as.back' h = a
 end Back
 
 
+/-! ### Declarations about `Array.swap` -/
+
+/-- The same as `Array.swap` while this version uses `USize` and `Array.uget/.uset`. -/
+--@[extern "lean_array_uswap"]
+def uswap (x : Array α) (i j : USize) (hi : i.toNat < x.size) (hj : j.toNat < x.size) : Array α :=
+  let v₁ := x.uget i hi
+  let v₂ := x.uget j hj
+  let x' := x.uset i v₂ hi
+  x'.uset j v₁ (x.size_uset v₂ i hi ▸ hj)
+
+
 /-! ### Variants of `Array.any` -/
 
 section Any

@@ -10,6 +10,7 @@ import Algdata.Tactic.PkgLocal
 import Algdata.Init.Nat
 import Algdata.Init.GetElem
 import Algdata.Data.Nat.Rec
+import Algdata.Data.Fin.Basic
 import Algdata.Data.List.Basic
 import Algdata.Data.Array.Basic
 
@@ -93,6 +94,26 @@ theorem push_induction {motive : Array α → Prop}
 theorem size_nil : @Array.size α #[] = 0 := rfl
 
 theorem size_eq_length_of_data (x : Array α) : x.size = x.data.length := rfl
+
+
+/-!
+## `Array.swap`
+-/
+
+theorem getElem_swap (x : Array α) (i j : Fin x.size) (k : Nat) {hk : k < (x.swap i j).size} : (x.swap i j)[k] = if j.1 = k then x[i.1] else if i.1 = k then x[j.1] else x[k]'((x.size_swap i j ▸ hk)) := by
+  dsimp [swap] at hk ⊢
+  conv at hk => rewrite [Array.size_set]
+  rewrite [(x.set i x[j.1]).get_set _ k hk]
+  simp only [← Fin.cast_eq_subst _ j, Fin.coe_cast]
+  conv at hk => rewrite [Array.size_set]
+  rw [x.get_set i k hk]
+
+theorem swap_comm (x : Array α) (i j : Fin x.size) : x.swap i j = x.swap j i := by
+  refine Array.ext _ _ (by simp only [size_swap]) ?_
+  intro k hk hk'
+  simp only [getElem_swap]
+  apply dite (i.1 = k) <;> apply dite (j.1 = k) <;> intros hjk hik
+  all_goals simp only [hik, hjk, if_true, if_false]
 
 
 /-!
@@ -216,7 +237,7 @@ theorem not_mem_empty (a : α) : a ∉ (#[] : Array α) :=
   fun h => Bool.noConfusion h
 
 theorem mem_cons {a b : α} {x : Array α} : a ∈ (cons b x) ↔ a = b ∨ a ∈ x := by
-  show any (cons b x) (a == ·) = true ↔ a = b ∨ a ∈ x 
+  show any (cons b x) (a == ·) = true ↔ a = b ∨ a ∈ x
   rewrite [any_cons]
   simp only [Bool.or_eq_true, beq_iff_eq]
   exact Iff.rfl
@@ -734,7 +755,7 @@ theorem nodup_iff_getElem_inj {x : Array α} : x.Nodup ↔ ∀ (i j : Fin x.size
         cases h
       . intro i j
         specialize h i.succ j.succ
-        simp only [size_cons, Fin.val_succ, getElem_cons_succ, Fin.succ_inj] at h 
+        simp only [size_cons, Fin.val_succ, getElem_cons_succ, Fin.succ_inj] at h
         exact h
 
 end Nodup
