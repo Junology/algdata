@@ -166,9 +166,9 @@ private theorem exp_lt_pow {n : Nat} (i : Nat) : n ≥ 2 → i < n^i := by
   case zero => exact Nat.le.refl
   case succ i h_ind =>
   have : n^i > 0 := Nat.pos_pow_of_pos i (Nat.lt_of_succ_lt h)
-  calc 
+  calc
     i+1 < n^i + 1 := succ_lt_succ h_ind
-    _   ≤ n^i + n^i := Nat.add_le_add_left this _ 
+    _   ≤ n^i + n^i := Nat.add_le_add_left this _
     _   = n^i*2 := (Nat.mul_two _).symm
     _   ≤ n^i*n := Nat.mul_le_mul_left _ h
     _   = n^(i+1) := rfl
@@ -183,7 +183,7 @@ private theorem pow_lt_pow_right {n i j : Nat} : n ≥ 2 → i < j → n^i < n^j
     _   ≤ n^i*n := Nat.mul_le_mul_left (n^i) hn
   case step j _ h_ind => calc
     n^i < n^j := h_ind
-    _   ≤ n^j + n^j := Nat.le_add_left _ _ 
+    _   ≤ n^j + n^j := Nat.le_add_left _ _
     _   = n^j*2 := (Nat.mul_two _).symm
     _   ≤ n^j*n := Nat.mul_le_mul_left _ hn
 
@@ -307,6 +307,27 @@ private theorem fold_congr {α : Type u} (f g : Nat → α → α) (n : Nat) (in
       Eq.trans
         (congrArg (f (n+1)) (IH λ _ _ h => hsucc _ _ (trans h (n+1).lt_succ_self)))
         (hsucc n _ (n+1).lt_succ_self)
+
+@[pkg_local]
+private theorem foldRev_succ (f : Nat → α → α) (n : Nat) (init : α) : (n+1).foldRev f init = f 0 (n.foldRev (f ∘ succ) init) := by
+  induction n generalizing f init with
+  | zero => rfl
+  | succ n IH =>
+    unfold foldRev; simp only [Nat.add, Nat.succ_eq_add_one]
+    rewrite [IH]; rfl
+
+@[pkg_local]
+private theorem foldRev_induction {motive : Nat → α → Prop}
+    (f : Nat → α → α) (n : Nat) (init : α)
+    (hinit : motive n init)
+    (hsucc : ∀ (k : Nat) (a : α), motive (k+1) a → motive k (f k a)) :
+    (motive 0 (n.foldRev f init)) := by
+  induction n generalizing f init motive with
+  | zero => exact hinit
+  | succ n IH =>
+    rewrite [foldRev_succ]
+    apply hsucc
+    exact @IH (motive ∘ succ) (f ∘ succ) init hinit (fun k => hsucc (k+1))
 
 
 /-!
