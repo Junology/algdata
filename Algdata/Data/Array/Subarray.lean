@@ -28,6 +28,9 @@ variable {α : Type u}
 theorem size_le_size_as (x : Subarray α) : x.size ≤ x.as.size :=
   Nat.le_trans (x.stop.sub_le x.start) x.h₂
 
+theorem start_le (x : Subarray α) : x.start ≤ x.as.size :=
+  trans x.h₁ x.h₂
+
 /-- Convert an index of `x : Subarray α` to that of the underlying array `x.as : Array α`. -/
 @[inline]
 def castIndex (x : Subarray α) (i : Fin x.size) : Fin x.as.size :=
@@ -35,6 +38,15 @@ def castIndex (x : Subarray α) (i : Fin x.size) : Fin x.as.size :=
     rcases i with ⟨i,hi⟩
     have := Nat.add_lt_of_lt_sub hi
     exact Nat.lt_of_lt_of_le (i.add_comm _ ▸ this) x.h₂
+
+theorem castIndex_ge_start (x : Subarray α) (i : Fin x.size) : (x.castIndex i).1 ≥ x.start :=
+  x.start.le_add_right i.1
+
+theorem castIndex_lt_stop (x : Subarray α) (i : Fin x.size) : (x.castIndex i).1 < x.stop := by
+  show x.start + i.1 < x.stop
+  suffices x.stop = x.start + x.size by
+    rewrite [this]; exact Nat.add_lt_add_left i.2 x.start
+  exact (Nat.add_sub_cancel' x.h₁).symm
 
 
 /-! ### Declarations about `Subarray.swap` -/
@@ -46,6 +58,22 @@ def swap (x : Subarray α) (i j : Fin x.size) : Subarray α := {
     x.as.swap (x.castIndex i) (x.castIndex j)
   h₂ := (x.as.size_swap _ _).symm ▸ x.h₂
 }
+
+@[simp]
+theorem as_swap (x : Subarray α) (i j : Fin x.size) : (x.swap i j).as = x.as.swap (x.castIndex i) (x.castIndex j) := by
+  rfl
+
+@[simp]
+theorem size_as_swap (x : Subarray α) (i j : Fin x.size) : (x.swap i j).as.size = x.as.size := by
+  rw [as_swap, Array.size_swap]
+
+@[simp]
+theorem start_swap (x : Subarray α) (i j : Fin x.size) : (x.swap i j).start = x.start :=
+  rfl
+
+@[simp]
+theorem stop_swap (x : Subarray α) (i j : Fin x.size) : (x.swap i j).stop = x.stop :=
+  rfl
 
 @[simp]
 theorem size_swap (x : Subarray α) (i j : Fin x.size) : (x.swap i j).size = x.size :=
@@ -112,5 +140,13 @@ theorem stop_shrinkOne' (x : Subarray α) (h : x.start < x.stop) : (x.shrinkOne'
 theorem size_shrinkOne' (x : Subarray α) (h : x.start < x.stop) : (x.shrinkOne' h).size = x.size - 1 :=
   show x.stop - 1 - x.start = (x.stop - x.start) - 1 by
   simp only [Nat.sub_sub, Nat.add_comm 1 x.start]
+
+@[simp]
+theorem size_as_shrinkOne' (x : Subarray α) (h : x.start < x.stop) : (x.shrinkOne' h).as.size = x.as.size :=
+  rfl
+
+@[simp]
+theorem getElem_shrinkOne' (x : Subarray α) (h : x.start < x.stop) (i : Nat) {hi : i < (x.shrinkOne' h).size} : (x.shrinkOne' h)[i] = x[i]'(Nat.lt_of_lt_of_le hi (x.size_shrinkOne' h ▸ x.size.pred_le)) := by
+  rfl
 
 end Subarray
