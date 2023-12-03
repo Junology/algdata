@@ -20,6 +20,11 @@ We implement a simple binary heap on array-like structures with respect to a com
 ## Implementation details
 
 The codes are based on the ones in `Mathlib.Data.BinaryHeap`.
+
+## Warning
+
+The unsafe implementation `heapifyDownUnsafeCore` assumes that if `i : USize` is a valid index, then the expression `2*i+2` doesn't cause *wrap-around* (aka. *overflow* informally).
+This implies that it requires `x.size < (USize.size - 1) / 2`, which is stronger than in the ordinary situation where one usually assumes `x.size < USize.size`.
 -/
 
 -- Disable auto-binding of unbounded variables
@@ -71,6 +76,10 @@ See also `BinaryHeap.heapifyDown` in `Mathlib.Data.BinaryHeap`.
 
 * Implementation note
   Currently, `heapifyDown` is an abbreviation by `heapifyDownAux` to avoid the bug in [lean4#2899](https://github.com/leanprover/lean4/issues/2899).
+
+* Warning
+  The unsafe implementation of this function (i.e. `heapifyDownUnsafeCore`) assumes that if `i : Nat` is a valid index of `x : Subarray α`, then `2*i+2 < USize.size`.
+  Note that this assumption is stronger than one in the ordinary situation where only `i < USize.size` is assumed.
 -/
 def heapifyDownAux (x : Subarray α) (i : Nat) : Subarray α :=
   let lhs := 2*i + 1 -- The index of the left child
