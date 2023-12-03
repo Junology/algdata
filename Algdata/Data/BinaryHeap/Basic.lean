@@ -106,137 +106,256 @@ termination_by _ => x.size - i
 abbrev heapifyDown (x : Subarray α) (i : @& Nat) : Subarray α :=
   heapifyDownAux lt x i
 
-@[simp]
-private theorem heapifyDownAux_eq (x : Subarray α) (i : Nat) : heapifyDownAux lt x i = heapifyDown lt x i :=
-  rfl
+/-- The `heapifyDown lt x i y` asserts that `y = heapifyDown lt x i` in the operational semantic manner. -/
+protected inductive heapifyDown.OpSpec : Subarray α → Nat → Subarray α → Prop where
+| node_next_left : ∀ (x : Subarray α) (i : Nat) (y : Subarray α) (hi : i < x.size) (hl : 2*i+1 < x.size) (hr : 2*i+2 < x.size), lt x[2*i+2] x[2*i+1] = true → lt x[i] x[2*i+1] = true → heapifyDown.OpSpec (x.swap ⟨i,hi⟩ ⟨2*i+1,hl⟩) (2*i+1) y → heapifyDown.OpSpec x i y
+| node_end_left : ∀ (x : Subarray α) (i : Nat) (hi : i < x.size) (hl : 2*i+1 < x.size) (hr : 2*i+2 < x.size), lt x[2*i+2] x[2*i+1] = true → lt x[i] x[2*i+1] = false → heapifyDown.OpSpec x i x
+| node_next_right : ∀ (x : Subarray α) (i : Nat) (y : Subarray α) (hi : i < x.size) (hl : 2*i+1 < x.size) (hr : 2*i+2 < x.size), lt x[2*i+2] x[2*i+1] = false → lt x[i] x[2*i+2] = true → heapifyDown.OpSpec (x.swap ⟨i,hi⟩ ⟨2*i+2,hr⟩) (2*i+2) y → heapifyDown.OpSpec x i y
+| node_end_right : ∀ (x : Subarray α) (i : Nat) (hi : i < x.size) (hl : 2*i+1 < x.size) (hr : 2*i+2 < x.size), lt x[2*i+2] x[2*i+1] = false → lt x[i] x[2*i+2] = false → heapifyDown.OpSpec x i x
+| node_odd_next : ∀ (x : Subarray α) (i : Nat) (hi : i < x.size) (hl : 2*i+1 < x.size), 2*i+2 ≥ x.size → lt x[i] x[2*i+1] = true → heapifyDown.OpSpec x i (x.swap ⟨i,hi⟩ ⟨2*i+1,hl⟩)
+| node_odd_end : ∀ (x : Subarray α) (i : Nat) (hi : i < x.size) (hl : 2*i+1 < x.size), 2*i+2 ≥ x.size → lt x[i] x[2*i+1] = false → heapifyDown.OpSpec x i x
+| leaf : ∀ (x : Subarray α) (i : Nat), 2*i+1 ≥ x.size → heapifyDown.OpSpec x i x
 
-@[simp]
-theorem size_as_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).as.size = x.as.size := by
+
+namespace heapifyDown.OpSpec
+
+protected theorem mk (x : Subarray α) (i : Nat) : heapifyDown.OpSpec lt x i (heapifyDown lt x i) := by
   unfold heapifyDown heapifyDownAux
-  takeout_lets; iterate intro_let
-  if hr : rhs < x.size then
-    rewrite [dif_pos hr]
-    takeout_lets; iterate intro_let
-    if hx : lt x[i] (x[j]'hj.2) then
-      rewrite [if_pos hx]
-      have := ‹x.size - j < x.size - i›
-      have IH := size_as_heapifyDown (x.swap ⟨i,hi⟩ ⟨j,hj.2⟩) j
-      rewrite [IH]
-      simp only [Subarray.swap, Array.size_swap]
-    else
-      rw [if_neg hx]
-  else if hl : lhs < x.size then
-    rewrite [dif_neg hr, dif_pos hl]
-    takeout_lets; intro_let
-    if hx : lt x[i] x[lhs] then
-      rewrite [if_pos hx]
-      simp only [Subarray.swap, Array.size_swap]
-    else
-      rw [if_neg hx]
-  else
-    rw [dif_neg hr, dif_neg hl]
-termination_by _ => x.size - i
-
-@[simp]
-theorem start_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).start = x.start := by
-  unfold heapifyDown heapifyDownAux
-  takeout_lets; intro lhs rhs
-  if hr : rhs < x.size then
-    rewrite [dif_pos hr]
-    takeout_lets; iterate intro_let
-    if hx : lt x[i] (x[j]'hj.2) then
-      rewrite [if_pos hx]
-      have := ‹x.size - j < x.size - i›
-      exact start_heapifyDown (x.swap ⟨i,hi⟩ ⟨j,hj.2⟩) j
-    else
-      rw [if_neg hx]
-  else if hl : lhs < x.size then
-    rewrite [dif_neg hr, dif_pos hl]
-    takeout_lets; intro_let
-    if hx : lt x[i] x[lhs] then
-      rewrite [if_pos hx]; rfl
-    else
-      rw [if_neg hx]
-  else
-    rw [dif_neg hr, dif_neg hl]
-termination_by _ => x.size - i
-
-@[simp]
-theorem stop_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).stop = x.stop := by
-  unfold heapifyDown heapifyDownAux
-  takeout_lets; intro lhs rhs
-  if hr : rhs < x.size then
-    rewrite [dif_pos hr]
-    takeout_lets; iterate intro_let
-    if hx : lt x[i] (x[j]'hj.2) then
-      rewrite [if_pos hx]
-      have := ‹x.size - j < x.size - i›
-      exact stop_heapifyDown (x.swap ⟨i,hi⟩ ⟨j,hj.2⟩) j
-    else
-      rw [if_neg hx]
-  else if hl : lhs < x.size then
-    rewrite [dif_neg hr, dif_pos hl]
-    takeout_lets; intro_let
-    if hx : lt x[i] x[lhs] then
-      rewrite [if_pos hx]; rfl
-    else
-      rw [if_neg hx]
-  else
-    rw [dif_neg hr, dif_neg hl]
-termination_by _ => x.size - i
-
-@[simp]
-theorem size_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).size = x.size := by
-  unfold Subarray.size
-  rw [start_heapifyDown, stop_heapifyDown]
-
-
-theorem get_heapifyDown_not_descendant (x : Subarray α) (i : Nat) (k : Nat) {hk : k < (heapifyDown lt x i).size} (hdesc : ¬ Descendant i k) : (heapifyDown lt x i)[k] = x[k]'(size_heapifyDown lt x _ ▸ hk) := by
-  have hk' : k < x.size := by
-    rewrite [size_heapifyDown] at hk; exact hk
-  have hkne : i ≠ k := fun h => by
-    cases h; exact hdesc (.refl i)
-  unfold heapifyDown heapifyDownAux
-  takeout_lets; iterate intro_let
+  takeout_lets; intro_let; intro_let
   if hr : rhs < x.size then
     simp (config:={zeta:=false,beta:=false}) only [dif_pos hr]
     takeout_lets; iterate intro_let
-    if hx : lt x[i] (x[j]'hj.2) then
-      simp (config:={zeta:=false}) [if_pos hx]
-      have hdescj : Descendant i j := by
-        if hxj : lt (x[rhs]'hr) (x[lhs]'hl) then
-          dsimp at hxj ⊢; rewrite [if_pos hxj]; exact .child_left _
-        else
-          dsimp at hxj ⊢; rewrite [if_neg hxj]; exact .child_right _
-      have : (x.swap ⟨i,hi⟩ ⟨j,hj.2⟩)[k]'hk' = x[k]'hk' := by
-        simp (config := {zeta:=false}) only [x.getElem_swap]
-        rw [if_neg (?_ : j ≠ k), if_neg hkne]
-        intro h; rewrite [← h] at hdesc; exact hdesc hdescj
-      rewrite [← this]
-      have _hterm := ‹x.size - j < x.size - i›
-      exact get_heapifyDown_not_descendant (x.swap ⟨i,hi⟩ ⟨j,hj.2⟩) j k (hdescj.irrel_descend hdesc)
+    have _hdecreasing := ‹x.size - j < x.size - i›
+    have IH := OpSpec.mk (x.swap ⟨i,hi⟩ ⟨j,hj.2⟩) j
+    if hx' : lt x[rhs] x[lhs] then
+      have hjl : j = lhs := if_pos hx'
+      simp (config:={zeta:=false}) only [hjl] at IH ⊢
+      if hx : lt x[i] x[lhs] then
+        simp only [if_pos hx]
+        exact node_next_left x i _ hi hl hr hx' hx IH
+      else
+        simp only [if_neg hx]
+        exact node_end_left x i hi hl hr hx' (Bool.of_not_eq_true hx)
     else
-      simp only [if_neg hx]
+      have hjr : j = rhs := if_neg hx'
+      simp (config:={zeta:=false}) only [hjr] at IH ⊢
+      if hx : lt x[i] x[rhs] then
+        simp only [if_pos hx]
+        exact node_next_right x i _ hi hl hr (Bool.of_not_eq_true hx') hx IH
+      else
+        simp only [if_neg hx]
+        exact node_end_right x i hi hl hr (Bool.of_not_eq_true hx') (Bool.of_not_eq_true hx)
   else if hl : lhs < x.size then
-    simp (config:={zeta:=false}) only [dif_neg hr, dif_pos hl]
-    have hi : i < x.size := trans (lt_child_left i) hl
+    simp (config:={zeta:=false,beta:=false}) only [dif_neg hr, dif_pos hl]
+    takeout_lets; intro_let
     if hx : lt x[i] x[lhs] then
-      simp (config:={zeta:=false}) only [if_pos hx, x.getElem_swap]
-      rw [if_neg (?_ : lhs ≠ k), if_neg hkne]
-      intro h; rewrite [← h] at hdesc
-      exact hdesc <| .child_left i
+      simp only [if_pos hx]
+      exact node_odd_next x i hi hl (Nat.le_of_not_lt hr) hx
     else
       simp only [if_neg hx]
+      exact node_odd_end x i hi hl (Nat.le_of_not_lt hr) (Bool.of_not_eq_true hx)
   else
     simp only [dif_neg hr, dif_neg hl]
+    exact leaf x i (Nat.le_of_not_lt hl)
 termination_by _ => x.size - i
-decreasing_by exact _hterm
+decreasing_by exact _hdecreasing
+
+variable {lt} {x : Subarray α} {i : Nat} {y : Subarray α}
+
+theorem to_eq (h : heapifyDown.OpSpec lt x i y) : y = heapifyDown lt x i := by
+  induction h with
+  | node_next_left x i y hi hl hr hx' hx _ IH =>
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_pos hr, if_pos hx', if_pos hx]
+    exact IH
+  | node_end_left x i hi hl hr hx' hx =>
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_pos hr, if_pos hx', if_neg (Bool.eq_false_iff.mp hx)]
+  | node_next_right x i y hi hl hr hx' hx _ IH =>
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_pos hr, if_neg (Bool.eq_false_iff.mp hx'), if_pos hx]
+    exact IH
+  | node_end_right x i hi hl hr hx' hx =>
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_pos hr, if_neg (Bool.eq_false_iff.mp hx'), if_neg (Bool.eq_false_iff.mp hx)]
+  | node_odd_next x i hi hl hr hx =>
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_neg (Nat.not_lt_of_le hr), dif_pos hl, if_pos hx]
+  | node_odd_end x i hi hl hr hx =>
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_neg (Nat.not_lt_of_le hr), dif_pos hl, if_neg (Bool.eq_false_iff.mp hx)]
+  | leaf x i hl =>
+    have hr : 2*i+2 ≥ x.size := .step hl
+    unfold heapifyDown heapifyDownAux
+    simp only [dif_neg (Nat.not_lt_of_le hr), dif_neg (Nat.not_lt_of_le hl)]
+
+theorem size_as_eq (h : heapifyDown.OpSpec lt x i y) : y.as.size = x.as.size := by
+  induction h <;> try rfl
+  all_goals simp only [Subarray.size_as_swap] at *
+  all_goals assumption
+
+theorem start_eq (h : heapifyDown.OpSpec lt x i y) : y.start = x.start := by
+  induction h <;> try rfl
+  all_goals next IH => simp only [IH, Subarray.start_swap]
+
+theorem stop_eq (h : heapifyDown.OpSpec lt x i y) : y.stop = x.stop := by
+  induction h <;> try rfl
+  all_goals next IH => simp only [IH, Subarray.stop_swap]
+
+theorem size_eq (h : heapifyDown.OpSpec lt x i y) : y.size = x.size := by
+  simp only [Subarray.size, h.stop_eq, h.start_eq]
+
+theorem get_not_descendant (h : heapifyDown.OpSpec lt x i y) (k : Nat) {hk : k < y.size} (hdesc : ¬ Descendant i k) : y[k] = x[k]'(h.size_eq ▸ hk) := by
+  induction h <;> try rfl
+  case node_next_left x i y hi hl hr hx' hx _ IH =>
+    rewrite [@IH hk fun h => hdesc (Descendant.trans (.child_left i) h)]
+    apply Subarray.getElem_swap_ne <;> (dsimp; intro hik; cases hik)
+    . exact hdesc (.refl _)
+    . exact hdesc (.child_left _)
+  case node_next_right x i y hi hl hr hx' hx _ IH =>
+    rewrite [@IH hk fun h => hdesc (Descendant.trans (.child_right i) h)]
+    apply Subarray.getElem_swap_ne <;> (dsimp; intro hik; cases hik)
+    . exact hdesc (.refl _)
+    . exact hdesc (.child_right _)
+  case node_odd_next x i hi hl hr hx =>
+    apply Subarray.getElem_swap_ne <;> (dsimp; intro hik; cases hik)
+    . exact hdesc (.refl _)
+    . exact hdesc (.child_left _)
+
+theorem exists_get_descendant (h : heapifyDown.OpSpec lt x i y) (k : Nat) (hk : k < x.size) (hdesc : Descendant i k) : ∃ (l : Nat) (hl : l < x.size), Descendant i l ∧ y[k]'(h.size_eq ▸ hk) = x[l] := by
+  induction h <;> try exact ⟨k,hk,hdesc,rfl⟩
+  case node_next_left x i y hi hl hr hx' hx h IH =>
+    if hdesc' : Descendant (2*i+1) k then
+      have ⟨l,hl,hld,IH⟩ := @IH hk hdesc'
+      simp only [IH, Subarray.getElem_swap]
+      if hll : 2*i+1 = l then
+        cases hll; simp only [ite_true]
+        exact ⟨i, hi, .refl i, rfl⟩
+      else
+        rewrite [if_neg hll, if_neg <| Nat.ne_of_lt <| trans (lt_child_left i) hld.le]
+        exact ⟨l, hl, .trans (.child_left i) hld, rfl⟩
+    else
+      simp only [h.get_not_descendant k hdesc', Subarray.getElem_swap]
+      rewrite [if_neg (c:=2*i+1=k) fun h => by cases h; exact hdesc' (.refl _)]
+      if hik : i = k then
+        cases hik; simp only [ite_true]
+        exact ⟨2*k+1, hl, .child_left k, rfl⟩
+      else
+        simp only [if_neg hik]
+        exact ⟨k, hk, hdesc, rfl⟩
+  case node_next_right x i y hi hl hr hx' hx h IH =>
+    if hdesc' : Descendant (2*i+2) k then
+      have ⟨l,hl,hld,IH⟩ := @IH hk hdesc'
+      simp only [IH, Subarray.getElem_swap]
+      if hrl : 2*i+2 = l then
+        cases hrl; simp only [ite_true]
+        exact ⟨i, hi, .refl i, rfl⟩
+      else
+        rewrite [if_neg hrl, if_neg <| Nat.ne_of_lt <| trans (lt_child_right i) hld.le]
+        exact ⟨l, hl, .trans (.child_right i) hld, rfl⟩
+    else
+      simp only [h.get_not_descendant k hdesc', Subarray.getElem_swap]
+      rewrite [if_neg (c:=2*i+2=k) fun h => by cases h; exact hdesc' (.refl _)]
+      if hik : i = k then
+        cases hik; simp only [ite_true]
+        exact ⟨2*k+2, hr, .child_right k, rfl⟩
+      else
+        simp only [if_neg hik]
+        exact ⟨k, hk, hdesc, rfl⟩
+  case node_odd_next x i hi hl hr hx =>
+    simp only [Subarray.getElem_swap]
+    if hlk : 2*i+1 = k then
+      cases hlk; simp only [ite_true]
+      exact ⟨i, hi, .refl i, rfl⟩
+    else if hik : i = k then
+      cases hik; simp only [if_neg hlk, ite_true]
+      exact ⟨2*k+1, hl, .child_left k, rfl⟩
+    else
+      simp only [if_neg hlk, if_neg hik]
+      exact ⟨k, hk, hdesc, rfl⟩
+
+theorem exists_get (h : heapifyDown.OpSpec lt x i y) (k : Nat) (hk : k < x.size) : ∃ (l : Nat) (hl : l < x.size), y[k]'(h.size_eq ▸ hk) = x[l] := by
+  if hd : Descendant i k then
+    have ⟨l, hl, _, hl'⟩ := h.exists_get_descendant k hk hd
+    exact ⟨l, hl, hl'⟩
+  else
+    simp only [h.get_not_descendant k hd]
+    exact ⟨k, hk, rfl⟩
+
+theorem get_as_eq_of_lt_start (h : heapifyDown.OpSpec lt x i y) (k : Nat) {hk : k < y.as.size} (hlt : k < x.start) : y.as[k] = x.as[k]'(h.size_as_eq ▸ hk) := by
+  induction h <;> try rfl
+  case node_next_left x i y hi hl hr hx' hx _ IH =>
+    rewrite [@IH hk hlt]; simp only [x.as_swap]
+    apply Array.getElem_swap_ne <;> (dsimp; intro hik; cases hik)
+    . exact Nat.not_le_of_lt hlt <| x.start.le_add_right i
+    . exact Nat.not_le_of_lt hlt <| x.start.le_add_right _
+  case node_next_right x i y hi hl hr hx' hx _ IH =>
+    rewrite [@IH hk hlt]; simp only [x.as_swap]
+    apply Array.getElem_swap_ne <;> (dsimp; intro hik; cases hik)
+    . exact Nat.not_le_of_lt hlt <| x.start.le_add_right i
+    . exact Nat.not_le_of_lt hlt <| x.start.le_add_right _
+  case node_odd_next x i hi hl _ _ =>
+    apply Array.getElem_swap_ne <;> (dsimp; intro hik; cases hik)
+    . exact Nat.not_le_of_lt hlt <| x.start.le_add_right i
+    . exact Nat.not_le_of_lt hlt <| x.start.le_add_right _
+
+theorem get_as_eq_of_ge_stop (h : heapifyDown.OpSpec lt x i y) (k : Nat) {hk : k < y.as.size} (hge : k ≥ x.stop) : y.as[k] = x.as[k]'(h.size_as_eq ▸ hk) := by
+  induction h <;> try rfl
+  case node_next_left x i y hi hl hr hx' hx _ IH =>
+    rewrite [@IH hk hge]
+    apply Array.getElem_swap_ne <;> (dsimp; intro h; cases h)
+    all_goals exact Nat.not_lt_of_le hge <| x.castIndex_lt_stop _
+  case node_next_right x i y hi hl hr hx' hx _ IH =>
+    rewrite [@IH hk hge]
+    apply Array.getElem_swap_ne <;> (dsimp; intro h; cases h)
+    all_goals exact Nat.not_lt_of_le hge <| x.castIndex_lt_stop _
+  case node_odd_next x i hi hl _ _ =>
+    apply Array.getElem_swap_ne <;> (dsimp; intro h; cases h)
+    all_goals exact Nat.not_lt_of_le hge <| x.castIndex_lt_stop _
+
+end heapifyDown.OpSpec
+
+
+@[simp]
+theorem size_as_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).as.size = x.as.size :=
+  (heapifyDown.OpSpec.mk lt x i).size_as_eq
+
+@[simp]
+theorem start_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).start = x.start :=
+  (heapifyDown.OpSpec.mk lt x i).start_eq
+
+@[simp]
+theorem stop_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).stop = x.stop :=
+  (heapifyDown.OpSpec.mk lt x i).stop_eq
+
+@[simp]
+theorem size_heapifyDown (x : Subarray α) (i : Nat) : (heapifyDown lt x i).size = x.size :=
+  (heapifyDown.OpSpec.mk lt x i).size_eq
+
+theorem get_as_heapifyDown_of_lt_start (x : Subarray α) (i k : Nat) {hk : k < (heapifyDown lt x i).as.size} (hk' : k < x.start) : (heapifyDown lt x i).as[k] = x.as[k]'(size_as_heapifyDown lt x i ▸ hk) :=
+  (heapifyDown.OpSpec.mk lt x i).get_as_eq_of_lt_start k hk'
+
+theorem get_as_heapifyDown_of_ge_stop (x : Subarray α) (i k : Nat) {hk : k < (heapifyDown lt x i).as.size} (hk' : k ≥ x.stop) : (heapifyDown lt x i).as[k] = x.as[k]'(size_as_heapifyDown lt x i ▸ hk) :=
+  (heapifyDown.OpSpec.mk lt x i).get_as_eq_of_ge_stop k hk'
+
+theorem get_heapifyDown_not_descendant (x : Subarray α) (i k : Nat) {hk : k < (heapifyDown lt x i).size} (hdesc : ¬ Descendant i k) : (heapifyDown lt x i)[k] = x[k]'(size_heapifyDown lt x _ ▸ hk) :=
+  (heapifyDown.OpSpec.mk lt x i).get_not_descendant k hdesc
 
 theorem get_heapifyDown_lt (x : Subarray α) (i : Nat) (k : Nat) {hk : k < (heapifyDown lt x i).size} (hki : k < i) : (heapifyDown lt x i)[k] = x[k]'(trans (α:=Nat) hk (size_heapifyDown lt x i)) := by
   refine get_heapifyDown_not_descendant lt x i k ?_
   intro h
   exact absurd h.le (Nat.not_le_of_gt hki)
 
+theorem exists_get_heapifyDown_descendant (x : Subarray α) (i k : Nat) (hk : k < x.size) (hdesc : Descendant i k) : ∃ (l : Nat) (hl : l < x.size), Descendant i l ∧ (heapifyDown lt x i)[k]'(size_heapifyDown lt x i ▸ hk) = x[l] :=
+  (heapifyDown.OpSpec.mk lt x i).exists_get_descendant k hk hdesc
+
+theorem exists_get_heapifyDown (x : Subarray α) (i k : Nat) (hk : k < x.size) : ∃ (l : Nat) (hl : l < x.size), (heapifyDown lt x i)[k]'(size_heapifyDown lt x i ▸ hk) = x[l] :=
+  (heapifyDown.OpSpec.mk lt x i).exists_get k hk
+
+/-!
+* TODO
+
+```lean
 theorem get_heapifyDown_eq (x : Subarray α) (i : Nat) {hi : i < (heapifyDown lt x i).size} :
     (heapifyDown lt x i)[i] =
     have : i < x.size := trans (α:=Nat) (s:=Eq) hi (size_heapifyDown lt x i)
@@ -282,40 +401,8 @@ theorem get_heapifyDown_eq (x : Subarray α) (i : Nat) {hi : i < (heapifyDown lt
       simp only [if_neg hx]
   else
     simp only [dif_neg hr, dif_neg hl]
-
-theorem exists_get_heapifyDown_eq (x : Subarray α) (i : Fin x.size) : ∃ (k : Fin x.size), Descendant i.1 k.1 ∧ (heapifyDown lt x i.1)[i.1] = x[k.1] := by
-  simp only [get_heapifyDown_eq]
-  if hr : 2*i.1+2 < x.size then
-    if hx : lt x[2*i.1+2] (x[2*i.1+1]'(Nat.lt_of_succ_lt hr)) then
-      if hx' : lt x[i.1] (x[2*i.1+1]'(Nat.lt_of_succ_lt hr)) then
-        rewrite [dif_pos hr, if_pos hx, if_pos hx']
-        exact ⟨⟨2*i.1+1, Nat.lt_of_succ_lt hr⟩, .child_left i.1, rfl⟩
-      else
-        rewrite [dif_pos hr, if_pos hx, if_neg hx']
-        exact ⟨i, .refl i.1, rfl⟩
-    else
-      if hx' : lt x[i.1] x[2*i.1+2] then
-        rewrite [dif_pos hr, if_neg hx, if_pos hx']
-        exact ⟨⟨2*i.1+2, hr⟩, .child_right i.1, rfl⟩
-      else
-        rewrite [dif_pos hr, if_neg hx, if_neg hx']
-        exact ⟨i, .refl i.1, rfl⟩
-  else if hl : 2*i+1 < x.size then
-    if hx : lt x[i.1] x[2*i.1+1] then
-      rewrite [dif_neg hr, dif_pos hl, if_pos hx]
-      exact ⟨⟨2*i.1+1, hl⟩, .child_left i.1, rfl⟩
-    else
-      rewrite [dif_neg hr, dif_pos hl, if_neg hx]
-      exact ⟨i, .refl i.1, rfl⟩
-  else
-    rewrite [dif_neg hr, dif_neg hl]
-    exact ⟨i, .refl i.1, rfl⟩
-
-#eval heapifyDown (fun i j => decide (i < j)) #[3,1,4,1,5,9,2].toSubarray 0
-#print axioms heapifyDown
-#print axioms start_heapifyDown
-#print axioms stop_heapifyDown
-#print axioms size_heapifyDown
+```
+-/
 
 
 /-! ### Declarations about `BinaryHeap.mkHeap` -/
@@ -337,7 +424,10 @@ unsafe def mkHeapUnsafe (x : Subarray α) : Subarray α :=
   let usize : USize := stop.toUSize - ustart
   ⟨mkHeapUnsafeCore lt x ustart usize, start, stop, lcProof, lcProof⟩
 
-/-- `BinaryHeap.mkHeap lt x` make `x : Subarray α` into a binary heap with respect to a comparison function `lt : α → α → Bool`. -/
+/--
+`BinaryHeap.mkHeap lt x` make `x : Subarray α` into a binary heap with respect to a comparison function `lt : α → α → Bool`.
+Note that the definition is equivalent to `Nat.foldRev (fun n x => heapifyDown lt x n) (n.size / 2) x`; see `BinaryHeap.mkHeap_eq_foldRev`.
+-/
 @[implemented_by mkHeapUnsafe]
 def mkHeap (x : Subarray α) : Subarray α :=
   let rec loop (x : Subarray α) : (n : Nat) → Subarray α
@@ -345,36 +435,89 @@ def mkHeap (x : Subarray α) : Subarray α :=
   | n+1 => loop (heapifyDown lt x n) n
   loop x (x.size / 2)
 
+theorem mkHeap_eq_foldRev (x : Subarray α) : mkHeap lt x = Nat.foldRev (fun n x => heapifyDown lt x n) (x.size / 2) x := by
+  unfold mkHeap; generalize x.size/2 = n
+  induction n generalizing x with
+  | zero => rfl
+  | succ n IH => exact IH (heapifyDown lt x n)
+
 @[simp]
-theorem size_as_mkHeap (x : Subarray α) : (mkHeap lt x).as.size = x.as.size := by
-  suffices ∀ (x : Subarray α) (n : Nat), (mkHeap.loop lt x n).as.size = x.as.size
-    from this x _
-  clear x; intro x n
+theorem size_as_mkHeap_loop (x : Subarray α) (n : Nat) : (mkHeap.loop lt x n).as.size = x.as.size := by
   induction n generalizing x with
   | zero => rfl
   | succ n IH => simp only [mkHeap.loop, IH, size_as_heapifyDown]
 
 @[simp]
-theorem start_mkHeap (x : Subarray α) : (mkHeap lt x).start = x.start := by
-  suffices ∀ (x : Subarray α) (n : Nat), (mkHeap.loop lt x n).start = x.start
-    from this x _
-  clear x; intro x n
+theorem start_mkHeap_loop (x : Subarray α) (n : Nat) : (mkHeap.loop lt x n).start = x.start := by
   induction n generalizing x with
   | zero => rfl
   | succ n IH => dsimp [mkHeap.loop]; rw [IH, start_heapifyDown]
 
 @[simp]
-theorem stop_mkHeap (x : Subarray α) : (mkHeap lt x).stop = x.stop := by
-  suffices ∀ (x : Subarray α) (n : Nat), (mkHeap.loop lt x n).stop = x.stop
-    from this x _
-  clear x; intro x n
+theorem stop_mkHeap_loop (x : Subarray α) (n : Nat) : (mkHeap.loop lt x n).stop = x.stop := by
   induction n generalizing x with
   | zero => rfl
   | succ n IH => dsimp [mkHeap.loop]; rw [IH, stop_heapifyDown]
 
 @[simp]
-theorem size_mkHeap (x : Subarray α) : (mkHeap lt x).size = x.size := by
-  unfold Subarray.size; rw [start_mkHeap, stop_mkHeap]
+theorem size_mkHeap_loop (x : Subarray α) (n : Nat) : (mkHeap.loop lt x n).size = x.size := by
+  dsimp [Subarray.size]; rw [start_mkHeap_loop, stop_mkHeap_loop]
+
+theorem get_as_mkHeap_loop_of_lt_start (x : Subarray α) (n k : Nat) {hk : k < (mkHeap.loop lt x n).as.size} (hlt : k < x.start) : (mkHeap.loop lt x n).as[k] = x.as[k]'(size_as_mkHeap_loop lt x n ▸ hk) := by
+  induction n generalizing x with
+  | zero => rfl
+  | succ n IH =>
+    dsimp [mkHeap.loop] at hk ⊢
+    conv at hk => rw [size_as_mkHeap_loop, size_as_heapifyDown]
+    specialize @IH (heapifyDown lt x n)
+      ((size_as_mkHeap_loop lt _ n).symm ▸ size_as_heapifyDown lt x n ▸ hk)
+      (start_heapifyDown lt x n ▸ hlt)
+    rw [IH, get_as_heapifyDown_of_lt_start lt x n k hlt]
+
+theorem get_as_mkHeap_loop_of_ge_stop (x : Subarray α) (n k : Nat) {hk : k < (mkHeap.loop lt x n).as.size} (hge : k ≥ x.stop) : (mkHeap.loop lt x n).as[k] = x.as[k]'(size_as_mkHeap_loop lt x n ▸ hk) := by
+  induction n generalizing x with
+  | zero => rfl
+  | succ n IH =>
+    dsimp [mkHeap.loop] at hk ⊢
+    conv at hk => rw [size_as_mkHeap_loop, size_as_heapifyDown]
+    specialize @IH (heapifyDown lt x n)
+      ((size_as_mkHeap_loop lt _ n).symm ▸ size_as_heapifyDown lt x n ▸ hk)
+      (stop_heapifyDown lt x n ▸ hge)
+    rw [IH, get_as_heapifyDown_of_ge_stop lt x n k hge]
+
+theorem exists_get_mkHeap_loop (x : Subarray α) (n k : Nat) (hk : k < x.size) : ∃ (l : Nat) (hl : l < x.size), (mkHeap.loop lt x n)[k]'(size_mkHeap_loop lt x n ▸ hk) = x[l] := by
+  induction n generalizing x with
+  | zero => exact ⟨k,hk,rfl⟩
+  | succ n IH =>
+    dsimp [mkHeap.loop]
+    have ⟨l',hl',IH⟩ := IH (heapifyDown lt x n) (size_heapifyDown lt x n ▸ hk)
+    simp only [IH]
+    exact exists_get_heapifyDown lt x n l' (size_heapifyDown lt x n ▸ hl')
+
+@[simp]
+theorem size_as_mkHeap (x : Subarray α) : (mkHeap lt x).as.size = x.as.size :=
+  size_as_mkHeap_loop lt x (x.size/2)
+
+@[simp]
+theorem start_mkHeap (x : Subarray α) : (mkHeap lt x).start = x.start :=
+  start_mkHeap_loop lt x (x.size/2)
+
+@[simp]
+theorem stop_mkHeap (x : Subarray α) : (mkHeap lt x).stop = x.stop :=
+  stop_mkHeap_loop lt x (x.size/2)
+
+@[simp]
+theorem size_mkHeap (x : Subarray α) : (mkHeap lt x).size = x.size :=
+  size_mkHeap_loop lt x (x.size/2)
+
+theorem get_as_mkHeap_of_lt_start (x : Subarray α) (i : Nat) {hi : i < (mkHeap lt x).as.size} (hlt : i < x.start) : (mkHeap lt x).as[i] = x.as[i]'(size_as_mkHeap lt x ▸ hi) :=
+  get_as_mkHeap_loop_of_lt_start lt x _ i hlt
+
+theorem get_as_mkHeap_of_ge_stop (x : Subarray α) (i : Nat) {hi : i < (mkHeap lt x).as.size} (hge : i ≥ x.stop) : (mkHeap lt x).as[i] = x.as[i]'(size_as_mkHeap lt x ▸ hi) :=
+  get_as_mkHeap_loop_of_ge_stop lt x _ i hge
+
+theorem exists_get_mkHeap (x : Subarray α) (i : Nat) (hi : i < x.size) : ∃ (k : Nat) (hk : k < x.size), (mkHeap lt x)[i]'(size_mkHeap lt x ▸ hi) = x[k] :=
+  exists_get_mkHeap_loop lt x (x.size/2) i hi
 
 
 /-! ### Declaration about `popMax` -/
@@ -393,24 +536,120 @@ Indeed,
 -/
 def popMax (x : Subarray α) : Subarray α :=
   if h : x.start < x.stop then
-    let stop' := x.stop - 1
-    0 |> heapifyDown lt {
-      x with
-      as := x.as.swap ⟨x.start, trans h x.h₂⟩ ⟨stop', trans (Nat.pred_lt' h) x.h₂⟩
-      stop := stop'
-      h₁ := Nat.le_pred_of_lt h
-      h₂ := by rewrite [Array.size_swap]; exact trans x.stop.pred_le x.h₂
-    }
+    have : 0 < x.size := Nat.sub_pos_of_lt h
+    let x := x.swap ⟨0, this⟩ ⟨x.size-1, Nat.pred_lt' this⟩
+    heapifyDown lt (x.shrinkOne' h) 0
   else
     x
 
+theorem popMax_empty (x : Subarray α) (h : x.start = x.stop) : popMax lt x = x :=
+  dif_neg (c:=x.start < x.stop) <| Nat.not_lt_of_le <| h ▸ .refl
+
 @[simp]
 theorem size_as_popMax (x : Subarray α) : (popMax lt x).as.size = x.as.size := by
-  unfold popMax
+  delta popMax
   if h : x.start < x.stop then
-    simp only [dif_pos h, size_as_heapifyDown, Array.size_swap]
+    simp only [dif_pos h, size_as_heapifyDown, Subarray.size_as_shrinkOne', Subarray.size_as_swap]
   else
     simp only [dif_neg h]
+
+@[simp]
+theorem start_popMax (x : Subarray α) : (popMax lt x).start = x.start := by
+  delta popMax
+  if h : x.start < x.stop then
+    simp only [dif_pos h, start_heapifyDown, Subarray.start_shrinkOne', Subarray.start_swap]
+  else
+    simp only [dif_neg h]
+
+@[simp]
+theorem stop_popMax_le_stop (x : Subarray α) : (popMax lt x).stop ≤ x.stop := by
+  delta popMax
+  if h : x.start < x.stop then
+    simp only [dif_pos h, stop_heapifyDown, Subarray.stop_shrinkOne', Subarray.stop_swap]
+    exact x.stop.pred_le
+  else
+    simp only [dif_neg h]; exact .refl
+
+@[simp]
+theorem size_popMax (x : Subarray α) : (popMax lt x).size = x.size - 1 := by
+  delta popMax
+  cases Nat.lt_or_eq_of_le x.h₁ with
+  | inl hlt =>
+    simp only [dif_pos hlt, size_heapifyDown, Subarray.size_shrinkOne', Subarray.size_swap]
+  | inr heq =>
+    rewrite [dif_neg (c:=x.start < x.stop) (heq ▸ x.start.lt_irrefl)]
+    simp only [Subarray.size, heq, x.stop.sub_self]
+
+@[simp]
+theorem stop_popMax (x : Subarray α) (h : x.start < x.stop) : (popMax lt x).stop = x.stop - 1 := by
+  delta popMax
+  simp only [dif_pos h, stop_heapifyDown]
+  refine Eq.trans (Subarray.stop_shrinkOne' _ ?_) ?_
+  all_goals simp only [Subarray.stop_swap, Subarray.start_swap]
+  exact h
+
+theorem get_as_popMax_of_lt_start (x : Subarray α) (i : Nat) {hi : i < (popMax lt x).as.size} (hlt : i < x.start) : (popMax lt x).as[i] = x.as[i]'(trans hlt x.start_le :) := by
+  delta popMax
+  if h : x.start < x.stop then
+    simp only [dif_pos h]
+    rewrite [get_as_heapifyDown_of_lt_start lt _ 0 i]
+    all_goals simp only [Subarray.as_shrinkOne', Subarray.as_swap, Subarray.start_shrinkOne', Subarray.start_swap]
+    . refine Array.getElem_swap_ne x.as _ _ _ (Nat.ne_of_gt hlt) ?_
+      exact Nat.ne_of_gt <| trans hlt (x.castIndex_ge_start _)
+    . exact hlt
+  else
+    simp only [dif_neg h]
+
+theorem get_as_popMax_of_ge_stop (x : Subarray α) (i : Nat) {hi : i < (popMax lt x).as.size} (hge : i ≥ x.stop) : (popMax lt x).as[i] = x.as[i]'(size_as_popMax lt x ▸ hi) := by
+  delta popMax
+  if h : x.start < x.stop then
+    simp only [dif_pos h]
+    rewrite [get_as_heapifyDown_of_ge_stop lt _ 0 i]
+    . simp only [Subarray.as_shrinkOne']
+      refine Array.getElem_swap_ne x.as _ _ _ ?_ ?_
+      . exact Nat.ne_of_lt <| trans (x.castIndex_lt_stop _) hge
+      . exact Nat.ne_of_lt <| trans (x.castIndex_lt_stop _) hge
+    . simp only [Subarray.stop_shrinkOne']
+      exact Nat.le_trans x.stop.pred_le hge
+  else
+    simp only [dif_neg h]
+
+theorem get_as_popMax_stop_sub_one (x : Subarray α) (hs : x.start < x.stop) : (popMax lt x).as[x.stop-1]'(size_as_popMax lt x ▸ trans (x.stop.pred_lt' hs) x.h₂) = x[0]'(Nat.sub_pos_of_lt hs) := by
+  delta popMax
+  simp only [dif_pos hs]
+  rewrite [get_as_heapifyDown_of_ge_stop lt _ 0 (x.stop-1)]
+  . simp only [Subarray.as_shrinkOne', Subarray.as_swap]
+    simp only [Array.getElem_swap, Subarray.castIndex]
+    rw [if_pos]; rfl
+    rewrite [Subarray.size, ← Nat.add_sub_assoc (Nat.sub_pos_of_lt hs), Nat.add_sub_cancel' x.h₁]
+    rfl
+  . simp only [Subarray.stop_shrinkOne', Subarray.stop_swap]
+    exact .refl
+
+theorem exists_get_popMax (x : Subarray α) (i : Nat) (hi : i < x.size - 1) : ∃ (k : Nat) (hk : k < x.size), 0 < k ∧ (popMax lt x)[i]'(size_popMax lt x ▸ hi) = x[k] := by
+  delta popMax; dsimp
+  have : i + 1 < x.stop - x.start := Nat.add_lt_of_lt_sub hi
+  have : x.start < x.stop := calc
+    x.start < i+1+x.start := Nat.lt_add_of_pos_left i.zero_lt_succ
+    _       < x.stop := Nat.add_lt_of_lt_sub this
+  simp only [dif_pos this]
+  have hzero : 0 < x.size := Nat.sub_pos_of_lt this
+  have hlast : x.size-1 < x.size := Nat.pred_lt' <| Nat.add_lt_of_lt_sub hi
+  have ⟨k,hk,h⟩ :=
+    exists_get_heapifyDown lt ((x.swap ⟨0,hzero⟩ ⟨x.size-1,hlast⟩).shrinkOne' this) 0 i <| by
+      simp only [Subarray.size_shrinkOne', Subarray.size_swap]
+      exact hi
+  simp only [h, Subarray.getElem_shrinkOne', Subarray.getElem_swap]; clear h
+  conv at hk => simp only [Subarray.size_shrinkOne', Subarray.size_swap]
+  simp only [if_neg (Nat.ne_of_gt hk)]
+  if hzk : 0 = k then
+    simp only [if_pos hzk]
+    exists x.size-1, hlast
+    exact ⟨Nat.lt_of_le_of_lt k.zero_le hk, rfl⟩
+  else
+    simp only [if_neg hzk]
+    exists k, (Nat.lt_of_lt_of_le hk x.size.pred_le)
+    exact ⟨Nat.pos_of_ne_zero (Ne.symm hzk), rfl⟩
 
 
 /-! ### Declaration about `heapSort` -/
@@ -419,47 +658,119 @@ theorem size_as_popMax (x : Subarray α) : (popMax lt x).as.size = x.as.size := 
 unsafe def heapSortUnsafeCore (x : Array α) (start size : USize) : Array α :=
   unsafe let rec @[specialize] loop (x : Array α) (n : USize) : Array α :=
     if n == 0 then x else
+      -- Equivalent to matching `n` in the expression `n+1`
       let n : USize := n-1
+      -- The following two lines are equivalent to `popMax lt x`
       let x := x.uswap start (start + n) lcProof lcProof
       let x := heapifyDownUnsafeCore lt x start n 0
+      -- Make sure this is a tail-recursion
       loop x n
   let x := mkHeapUnsafeCore lt x start size
   loop x size
 
 @[inline]
-unsafe def heapSortUnsafe (x : Subarray α) : Subarray α :=
+unsafe def heapSortUnsafe (x : Subarray α) : Array α :=
   match x with
   | .mk x start stop _ _ =>
     let ustart : USize := start.toUSize
     let usize : USize := stop.toUSize - ustart
-    ⟨heapSortUnsafeCore lt x ustart usize, start, stop, lcProof, lcProof⟩
+    heapSortUnsafeCore lt x ustart usize
 
 @[implemented_by heapSortUnsafe]
-def heapSort (x : Subarray α) : Subarray α :=
-  let rec loop : Nat → (x : Subarray α) → {y : Array α // y.size = x.as.size}
-  | 0, x => ⟨x.as, rfl⟩
-  | n+1, x =>
-    match loop n (popMax lt x) with
-    | .mk y h => ⟨y, Eq.trans h <| size_as_popMax lt x⟩
+def heapSort (x : Subarray α) : Array α :=
+  let rec loop : Subarray α → Nat → Array α
+  | x, 0 => x.as
+  | x, n+1 => loop (popMax lt x) n
   let x := mkHeap lt x
-  {
-    x with
-    as := (loop x.size x).1
-    h₂ := trans (α:=Nat) x.h₂ (loop x.size x).2.symm
-  }
+  loop x x.size
+
+/-- Semantic specification for `heapSort.loop`. -/
+protected inductive heapSort.loop.OpSpec : Subarray α → Nat → Array α → Prop where
+| zero (x : Subarray α) : loop.OpSpec x 0 x.as
+| succ {x : Subarray α} {n : Nat} {y : Array α} : loop.OpSpec (popMax lt x) n y → loop.OpSpec x (n+1) y
+
+namespace heapSort.loop.OpSpec
+
+protected theorem mk (x : Subarray α) (n : Nat) : loop.OpSpec lt x n (heapSort.loop lt x n) := by
+  induction n generalizing x with
+  | zero => exact .zero x
+  | succ n IH => exact .succ <| IH (popMax lt x)
+
+variable {lt} {x : Subarray α} {n : Nat} {y : Array α}
+
+theorem to_eq (h : loop.OpSpec lt x n y) : y = heapSort.loop lt x n := by
+  induction h with
+  | zero => rfl
+  | succ h IH => rw [IH]; rfl
+
+theorem size_eq (h : loop.OpSpec lt x n y) : y.size = x.as.size := by
+  induction h with
+  | zero => rfl
+  | succ h IH => rw [IH, size_as_popMax]
+
+theorem get_eq_of_lt_start (h : loop.OpSpec lt x n y) (i : Nat) {hi : i < y.size} (hlt : i < x.start) : y[i] = x.as[i]'(h.size_eq ▸ hi) := by
+  induction h with
+  | zero => rfl
+  | @succ x n y h IH =>
+    specialize @IH hi <| start_popMax lt x ▸ hlt
+    exact Eq.trans IH <| get_as_popMax_of_lt_start lt x i hlt
+
+theorem get_eq_of_ge_stop (h : loop.OpSpec lt x n y) (i : Nat) {hi : i < y.size} (hge : i ≥ x.stop) : y[i] = x.as[i]'(h.size_eq ▸ hi) := by
+  induction h with
+  | zero => rfl
+  | @succ x n y h IH =>
+    specialize @IH hi <| Nat.le_trans (stop_popMax_le_stop lt x) hge
+    exact Eq.trans IH <| get_as_popMax_of_ge_stop lt x i hge
+
+theorem exists_get (h : loop.OpSpec lt x n y) (i : Nat) (ge_start : x.start ≤ i) (lt_stop : i < x.stop) : ∃ (k : Nat) (hk : k < x.size), y[i]'(h.size_eq ▸ trans lt_stop x.h₂) = x[k] := by
+  induction h with
+  | @zero x =>
+    let k := i - x.start
+    have hki : i = x.start + k := by
+      rw [Nat.add_comm, Nat.sub_add_cancel ge_start]
+    have hk : k < x.size := by
+      refine Nat.lt_sub_of_add_lt ?_
+      simp only [Nat.sub_add_cancel ge_start]
+      exact lt_stop
+    exists k, hk
+    exact getElem_eq (x:=x.as) (y:=x.as) rfl hki
+  | @succ x n y h IH =>
+    specialize IH (start_popMax lt x ▸ ge_start)
+    have hrng : x.start < x.stop := trans ge_start lt_stop
+    cases Nat.lt_or_eq_of_le (Nat.le_pred_of_lt lt_stop) with
+    | inl hlt =>
+      have ⟨k,hk,hy⟩ := IH (stop_popMax lt x hrng ▸ hlt)
+      have ⟨l,hl,_,hx⟩ := exists_get_popMax lt x k (size_popMax lt x ▸ hk)
+      simp only [hy, hx]
+      exact ⟨l, hl, rfl⟩
+    | inr heq =>
+      cases heq
+      rewrite [h.get_eq_of_ge_stop (x.stop-1) (stop_popMax lt x hrng ▸ .refl)]
+      rewrite [get_as_popMax_stop_sub_one lt x hrng]
+      exact ⟨0, Nat.zero_lt_sub_of_lt hrng, rfl⟩
+
+end heapSort.loop.OpSpec
 
 @[simp]
-theorem size_as_heapSort (x : Subarray α) : (heapSort lt x).as.size = x.as.size := by
-  dsimp [heapSort]
-  rewrite [(heapSort.loop lt (mkHeap lt x).size (mkHeap lt x)).2]
-  exact size_as_mkHeap lt x
+theorem size_heapSort (x : Subarray α) : (heapSort lt x).size = x.as.size :=
+  (heapSort.loop.OpSpec.mk lt _ _).size_eq.trans <|
+    size_as_mkHeap lt x
 
-@[simp]
-theorem start_heapSort (x : Subarray α) : (heapSort lt x).start = x.start :=
-  show (mkHeap lt x).start = x.start from start_mkHeap lt x
+theorem get_heapSort_of_lt_start (x : Subarray α) (i : Nat) {hi : i < (heapSort lt x).size} (hlt : i < x.start) : (heapSort lt x)[i] = x.as[i]'(size_heapSort lt x ▸ hi) :=
+  ((heapSort.loop.OpSpec.mk lt (mkHeap lt x) _).get_eq_of_lt_start i (start_mkHeap lt x ▸ hlt)).trans <|
+    get_as_mkHeap_of_lt_start lt x i hlt
 
-@[simp]
-theorem stop_heapSort (x : Subarray α) : (heapSort lt x).stop = x.stop :=
-  show (mkHeap lt x).stop = x.stop from stop_mkHeap lt x
+theorem get_heapSort_of_ge_stop (x : Subarray α) (i : Nat) {hi : i < (heapSort lt x).size} (hge : i ≥ x.stop) : (heapSort lt x)[i] = x.as[i]'(size_heapSort lt x ▸ hi) :=
+  ((heapSort.loop.OpSpec.mk lt (mkHeap lt x) _).get_eq_of_ge_stop i (stop_mkHeap lt x ▸ hge)).trans <|
+    get_as_mkHeap_of_ge_stop lt x i hge
+
+theorem exists_get_heapSort (x : Subarray α) (i : Nat) (ge_start : x.start ≤ i) (lt_stop : i < x.stop) : ∃ (k : Nat) (hk : k < x.size), (heapSort lt x)[i]'(size_heapSort lt x ▸ trans lt_stop x.h₂) = x[k] :=
+  have ⟨k,hk,h₁⟩ :=
+    (heapSort.loop.OpSpec.mk lt (mkHeap lt x) (mkHeap lt x).size).exists_get i
+      (start_mkHeap lt x ▸ ge_start)
+      (stop_mkHeap lt x ▸ lt_stop)
+  have ⟨l,hl,h₂⟩ :=
+    exists_get_mkHeap lt x k (size_mkHeap lt x ▸ hk)
+  ⟨l, hl, h₁.trans h₂⟩
 
 end Algdata.BinaryHeap

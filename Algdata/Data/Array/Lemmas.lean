@@ -108,6 +108,9 @@ theorem getElem_swap (x : Array α) (i j : Fin x.size) (k : Nat) {hk : k < (x.sw
   conv at hk => rewrite [Array.size_set]
   rw [x.get_set i k hk]
 
+theorem getElem_swap_ne (x : Array α) (i j : Fin x.size) (k : Nat) {hk : k < (x.swap i j).size} (hik : i.1 ≠ k) (hjk : j.1 ≠ k) : (x.swap i j)[k] = x[k]'(size_swap x i j ▸ hk) := by
+  rw [getElem_swap, if_neg hjk, if_neg hik]
+
 theorem swap_comm (x : Array α) (i j : Fin x.size) : x.swap i j = x.swap j i := by
   refine Array.ext _ _ (by simp only [size_swap]) ?_
   intro k hk hk'
