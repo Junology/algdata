@@ -57,6 +57,14 @@ theorem lt_child_left (i : Nat) : i < 2*i+1 := by
 theorem lt_child_right (i : Nat) : i < 2*i+2 :=
   .step (lt_child_left i)
 
+@[simp]
+theorem ge_parent (i : Nat) : i ≥ (i-1)/2 :=
+  Nat.le_trans (Nat.div_le_self _ 2) i.pred_le
+
+@[simp]
+theorem gt_parent {i : Nat} (h : i > 0) : i > (i-1)/2 :=
+  Nat.lt_of_le_of_lt (Nat.div_le_self _ 2) (Nat.pred_lt' h)
+
 
 /-! ### Descendants nodes -/
 
@@ -106,18 +114,12 @@ theorem parent (i : Nat) : Descendant ((i-1)/2) i := by
   | zero => exact .refl 0
   | succ i =>
     rewrite [Nat.succ_sub_one, Nat.succ_eq_add_one]
-    have hi := Nat.div_add_mod i 2
+    conv => rhs; rewrite [← Nat.div_add_mod i 2]
     cases i.mod_two_eq_zero_or_one with
     | inl hi_even =>
-      rewrite [hi_even, Nat.add_zero] at hi
-      suffices i + 1 = 2*(i/2) + 1 by
-        rewrite [this]; exact .child_left _
-      rw [hi]
+      rewrite [hi_even, Nat.add_zero]; exact .child_left _
     | inr hi_odd =>
-      rewrite [hi_odd] at hi
-      suffices i + 1 = 2*(i/2) + 2 by
-        rewrite [this]; exact .child_right _
-      rw [← congrArg (·+1) hi]
+      rewrite [hi_odd]; exact .child_right _
 
 theorem trans {i j k : Nat} (hij : Descendant i j) (hjk : Descendant j k) : Descendant i k := by
   induction hij with
@@ -130,6 +132,9 @@ theorem descend_left {i j : Nat} (h : Descendant i j) : Descendant i (2*j+1) :=
 
 theorem descend_right {i j : Nat} (h : Descendant i j) : Descendant i (2*j+2) :=
   h.trans (.child_right j)
+
+theorem of_parent {i j : Nat} (h : Descendant i ((j-1)/2)) : Descendant i j :=
+  h.trans (parent j)
 
 /-- The right sibling node is not a descendant of the left; see also `Descendant.sibling_not'`. -/
 theorem sibling_not (i : Nat) : ¬ Descendant (2*i+1) (2*i+2) := by
@@ -209,6 +214,30 @@ theorem ascendants_total {i j k : Nat} (hik : Descendant i k) (hjk : Descendant 
   cases Nat.lt_or_ge i j with
   | inl hlt => exact Or.inl <| ascend_right (Nat.le_of_lt hlt) hik hjk
   | inr hge => exact Or.inr <| ascend_right hge hjk hik
+
+theorem root (i : Nat) : Descendant 0 i := by
+  induction i using Nat.strongInductionOn
+  rename_i i IH
+  cases Nat.eq_zero_or_pos i with
+  | inl hz => cases hz; exact .refl 0
+  | inr hpos =>
+    specialize IH ((i-1)/2) (gt_parent hpos)
+    exact .trans IH (.parent i)
+
+instance decidable (i j : Nat) : Decidable (Descendant i j) :=
+  if hlt : i < j then
+    have : (j-1)/2 < j :=
+      Nat.lt_of_le_of_lt (Nat.div_le_self _ 2) (Nat.pred_lt' hlt)
+    match decidable i ((j-1)/2) with
+    | .isTrue IH => .isTrue IH.of_parent
+    | .isFalse IH =>
+      .isFalse fun h => IH (h.ascend_right_parent hlt)
+  else if heq : i = j then
+    .isTrue <| heq ▸ .refl i
+  else
+    .isFalse fun h =>
+      heq <| Nat.le_antisymm h.le (Nat.le_of_not_lt hlt)
+termination_by _ => j
 
 end Descendant
 
