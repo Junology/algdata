@@ -174,12 +174,12 @@ where
   find (lctx : LocalContext) (name : Name) (ty val : Expr) : MetaM (Option FVarId) := do
     match lctx.findFromUserName? name with
     | .some (.cdecl _ fvarId _ ty' _ _) =>
-      if (← isProp ty) && (← withReducible <| isDefEqGuarded ty ty') then
+      if (← isProp ty) && (ty == ty') then
         return .some fvarId
       else
         return .none
     | .some (.ldecl _ fvarId _ ty' val' _ _) =>
-      if (← withReducible <| isDefEqGuarded ty ty') && (← withReducible <| isDefEqGuarded val val') then
+      if (ty == ty') && (val == val') then
         return .some fvarId
       else
         return .none
